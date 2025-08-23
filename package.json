@@ -1,0 +1,13 @@
+{
+  "name": "scriptsafe",
+  "version": "1.9.4",
+  "description": "A browser extension that gives users control of the web and more secure browsing while emphasizing simplicity and intuitiveness.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "andryou, Choonster",
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "@types/chrome": "^0.1.4"
+  }
+}

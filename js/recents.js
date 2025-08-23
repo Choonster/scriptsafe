@@ -395,8 +395,9 @@ function notification(msg) {
   $('#message').html(msg).stop().fadeIn('slow').delay(2000).fadeOut('slow');
 }
 
-function processCommand() {
-  syncstatus = bkg.freshSync();
+// TODO: Unused?
+async function processCommand() {
+  syncstatus = await bkg.freshSync();
   if (syncstatus) {
     notification(bkg.getLocale('settingssavesync'));
   } else {

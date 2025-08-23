@@ -2,20 +2,33 @@
 // Distributed under the terms of the GNU General Public License
 // The GNU General Public License can be found in the gpl.txt file. Alternatively, see <http://www.gnu.org/licenses/>.
 // Credits and ideas: NotScripts, AdBlock Plus for Chrome, Ghostery, KB SSL Enforcer
+
+///@ts-check
+
 'use strict';
 
 var version = '1.0.9.3';
 
 var requestTypes,
+  /** @type {ReturnType<setTimeout>} */
   synctimer,
+  /** @type {ReturnType<setTimeout>} */
   recentstimer,
+  /** @type {ReturnType<setTimeout>} */
   reenabletimer,
+  /** @type {ReturnType<setInterval>} */
   useragentinterval,
+  /** @type {string[]} */
   blackList,
+  /** @type {string[]} */
   whiteList,
+  /** @type {string[]} */
   distrustList,
+  /** @type {string[]} */
   trustList,
+  /** @type {string[]} */
   sessionBlackList,
+  /** @type {string[]} */
   sessionWhiteList,
   locale;
 
@@ -40,6 +53,7 @@ var langs = {
   sv: 'Swedish',
 };
 
+/** @type {FingerprintType[]} */
 var fpTypes = [
   'fpCanvas',
   'fpCanvasFont',
@@ -55,16 +69,26 @@ var fpTypes = [
   'fpBrowserPlugins',
 ];
 
-var fpLists = [];
-var fpListsSession = [];
+/** @type {Partial<Record<FingerprintType, string[]>>} */
+var fpLists = {};
+
+/** @type {Partial<Record<FingerprintType, string[]>>} */
+var fpListsSession = {};
+
 var popup = [];
 
-var recentlog = [];
-recentlog['allowed'] = [];
-recentlog['blocked'] = [];
+/**
+ * @type {RecentLog}
+ */
+var recentlog = {
+  allowed: [],
+  blocked: [],
+};
 
 var changed = false;
+/** @type {Record<number, ItemsEntry>} */
 var ITEMS = {};
+/** @type {NumericBool} */
 var experimental = 0;
 var storageapi = false;
 var webrtcsupport = false;
@@ -103,6 +127,9 @@ function getWebRTC() {
   return webrtcsupport;
 }
 
+/**
+ * @param {boolean} rtcstatus
+ */
 function testWebRTC(rtcstatus) {
   document.getElementById('webrtc').remove();
   webrtcsupport = rtcstatus;
@@ -111,12 +138,17 @@ function testWebRTC(rtcstatus) {
 function checkWebRTC() {
   if (typeof chrome.privacy.network.webRTCIPHandlingPolicy === 'undefined')
     return false;
-  var doc = document.getElementById('webrtc').contentWindow.document;
+
+  var doc = /** @type {HTMLIFrameElement} */ (document.getElementById('webrtc'))
+    .contentWindow.document;
   doc.open();
   doc.write('<script src="../js/webrtctest.js"></script>');
   doc.close();
 }
 
+/**
+ * @type {WebRequestEventHandler<typeof chrome.webRequest.onBeforeSendHeaders>}
+ */
 function mitigate(req) {
   if (
     localStorage['enable'] == 'false' ||
@@ -175,6 +207,9 @@ function mitigate(req) {
   return { requestHeaders: req.requestHeaders };
 }
 
+/**
+ * @param {NumericBool} [force]
+ */
 function genUserAgent(force) {
   var os;
   if (localStorage['useragentspoof'] == 'custom') {
@@ -390,10 +425,17 @@ function genUserAgent(force) {
   }
 }
 
+/**
+ * @param {string} str
+ */
 function removeParams(str) {
   return str.replace(/#[^#]*$/, '').replace(/\?[^\?]*$/, '');
 }
 
+/**
+ * @param {string} url
+ * @param {ItemsEntry['allowed']|ItemsEntry['blocked']} elems
+ */
 function UrlInList(url, elems) {
   // thanks vnagarnaik!
   var foundElem = false;
@@ -406,6 +448,9 @@ function UrlInList(url, elems) {
   return foundElem;
 }
 
+/**
+ * @type {WebRequestEventHandler<typeof chrome.webRequest.onHeadersReceived>}
+ */
 function inlineblock(req) {
   if (
     req.tabId == -1 ||
@@ -418,7 +463,7 @@ function inlineblock(req) {
   if (req.type == 'main_frame') {
     var domainCheckStatus = domainCheck(req.url, 1);
     if (
-      experimental == '1' &&
+      experimental == 1 &&
       localStorage['preservesamedomain'] == 'false' &&
       localStorage['script'] == 'true' &&
       enabled(req.url) == 'true'
@@ -460,6 +505,9 @@ function inlineblock(req) {
   return { responseHeaders: headers };
 }
 
+/**
+ * @type {WebRequestEventHandler<typeof chrome.webRequest.onBeforeRequest>}
+ */
 function ScriptSafe(req) {
   if (
     req.tabId == -1 ||
@@ -474,9 +522,12 @@ function ScriptSafe(req) {
     resetTabData(req.tabId, req.url);
   }
   if (typeof ITEMS[req.tabId] === 'undefined') return { cancel: false };
+
+  /** @type {WebRequestType} */
   var reqtype = req.type;
   if (reqtype == 'sub_frame') reqtype = 'frame';
   else if (reqtype == 'main_frame') reqtype = 'page';
+
   var thirdPartyCheck;
   var elementStatusCheck;
   var baddiesCheck = baddies(
@@ -485,13 +536,15 @@ function ScriptSafe(req) {
     localStorage['antisocial'],
     2,
   );
+
   var extractedDomain = extractDomainFromURL(ITEMS[req.tabId]['url']);
   var extractedReqDomain = extractDomainFromURL(req.url);
   var domainCheckStatus = domainCheck(req.url, 1);
   var tabDomainCheckStatus = domainCheck(extractedDomain, 1);
+
   if (
-    tabDomainCheckStatus == '1' ||
-    (tabDomainCheckStatus == '-1' &&
+    tabDomainCheckStatus == 1 ||
+    (tabDomainCheckStatus == -1 &&
       localStorage['mode'] == 'block' &&
       localStorage['paranoia'] == 'true' &&
       localStorage['preservesamedomain'] == 'false')
@@ -500,9 +553,9 @@ function ScriptSafe(req) {
     thirdPartyCheck = true;
   } else {
     if (
-      (domainCheckStatus == '0' &&
+      (domainCheckStatus == 0 &&
         !(
-          tabDomainCheckStatus == '-1' &&
+          tabDomainCheckStatus == -1 &&
           localStorage['mode'] == 'block' &&
           localStorage['paranoia'] == 'true'
         )) ||
@@ -516,23 +569,25 @@ function ScriptSafe(req) {
     )
       thirdPartyCheck = true;
     else thirdPartyCheck = thirdParty(req.url, extractedDomain);
+
     if (
-      (tabDomainCheckStatus == '-1' &&
+      (tabDomainCheckStatus == -1 &&
         localStorage['mode'] == 'block' &&
         localStorage['paranoia'] == 'true') ||
-      (domainCheckStatus != '0' &&
-        (domainCheckStatus == '1' ||
-          (domainCheckStatus == '-1' && localStorage['mode'] == 'block'))) ||
+      (domainCheckStatus != 0 &&
+        (domainCheckStatus == 1 ||
+          (domainCheckStatus == -1 && localStorage['mode'] == 'block'))) ||
       (localStorage['annoyances'] == 'true' &&
         (localStorage['annoyancesmode'] == 'strict' ||
           (localStorage['annoyancesmode'] == 'relaxed' &&
-            domainCheckStatus != '0')) &&
-        baddiesCheck == '1') ||
-      (localStorage['antisocial'] == 'true' && baddiesCheck == '2')
+            domainCheckStatus != 0)) &&
+        baddiesCheck == 1) ||
+      (localStorage['antisocial'] == 'true' && baddiesCheck == 2)
     )
       elementStatusCheck = true;
     else elementStatusCheck = false;
   }
+
   var utmCleanURL = utmClean(req.url);
   var hashCleanURL = hashTrackingClean(req.url);
   if (elementStatusCheck && baddiesCheck && reqtype == 'image')
@@ -540,13 +595,13 @@ function ScriptSafe(req) {
   if (
     (reqtype == 'page' &&
       localStorage['mode'] == 'block' &&
-      (domainCheckStatus == '1' ||
+      (domainCheckStatus == 1 ||
         (localStorage['annoyances'] == 'true' &&
           (localStorage['annoyancesmode'] == 'strict' ||
             (localStorage['annoyancesmode'] == 'relaxed' &&
-              domainCheckStatus != '0')) &&
-          baddiesCheck == '1') ||
-        (localStorage['antisocial'] == 'true' && baddiesCheck == '2'))) ||
+              domainCheckStatus != 0)) &&
+          baddiesCheck == 1) ||
+        (localStorage['antisocial'] == 'true' && baddiesCheck == 2))) ||
     (reqtype == 'frame' &&
       (localStorage['iframe'] == 'true' || localStorage['frame'] == 'true')) ||
     (reqtype == 'script' && localStorage['script'] == 'true') ||
@@ -556,7 +611,7 @@ function ScriptSafe(req) {
     reqtype == 'webbug' ||
     (reqtype == 'xmlhttprequest' &&
       ((localStorage['xml'] == 'true' &&
-        (thirdPartyCheck || domainCheckStatus == '1' || baddiesCheck)) ||
+        (thirdPartyCheck || domainCheckStatus == 1 || baddiesCheck)) ||
         localStorage['xml'] == 'all'))
   ) {
     // request qualified for filtering, so continue.
@@ -565,11 +620,12 @@ function ScriptSafe(req) {
     if (hashCleanURL) return { redirectUrl: hashCleanURL };
     return { cancel: false };
   }
+
   var cleanedUrl = removeParams(req.url);
   if (
     elementStatusCheck &&
     ((localStorage['preservesamedomain'] != 'false' &&
-      (thirdPartyCheck || domainCheckStatus == '1' || baddiesCheck)) ||
+      (thirdPartyCheck || domainCheckStatus == 1 || baddiesCheck)) ||
       localStorage['preservesamedomain'] == 'false')
   ) {
     if (typeof ITEMS[req.tabId]['blocked'] === 'undefined')
@@ -589,7 +645,7 @@ function ScriptSafe(req) {
       recentlog['blocked'].push([
         new Date().getTime(),
         req.url,
-        reqtype.toUpperCase(),
+        /** @type {WebRequestTypeUpper} */ (reqtype.toUpperCase()),
         extractedReqDomain,
         ITEMS[req.tabId]['url'],
         domainCheckStatus,
@@ -617,7 +673,7 @@ function ScriptSafe(req) {
         extractedReqDomain = extractedReqDomain.substr(4);
       ITEMS[req.tabId]['allowed'].push([
         cleanedUrl,
-        reqtype.toUpperCase(),
+        /** @type {WebRequestTypeUpper} */ (reqtype.toUpperCase()),
         extractedReqDomain,
         domainCheckStatus,
         baddiesCheck,
@@ -625,7 +681,7 @@ function ScriptSafe(req) {
       recentlog['allowed'].push([
         new Date().getTime(),
         req.url,
-        reqtype.toUpperCase(),
+        /** @type {WebRequestTypeUpper} */ (reqtype.toUpperCase()),
         extractedReqDomain,
         ITEMS[req.tabId]['url'],
         domainCheckStatus,
@@ -639,6 +695,9 @@ function ScriptSafe(req) {
   return { cancel: false };
 }
 
+/**
+ * @param {RecentList} list
+ */
 function updateRecents(list) {
   window.clearTimeout(recentstimer);
   recentstimer = window.setTimeout(function () {
@@ -646,13 +705,21 @@ function updateRecents(list) {
   }, 1000);
 }
 
+/**
+ * @param {RecentList} list
+ */
 function setRecents(list) {
   var recentLimit = 25;
   var recentsLength = recentlog[list].length;
   if (recentsLength > recentLimit)
-    recentlog[list] = recentlog[list].slice(recentsLength - recentLimit);
+    recentlog[list] = /** @type {[]} */ (
+      recentlog[list].slice(recentsLength - recentLimit)
+    );
 }
 
+/**
+ * @param {RecentList} list
+ */
 function getRecents(list) {
   setRecents(list);
   return JSON.stringify(recentlog[list]);
@@ -663,6 +730,9 @@ function clearRecents() {
   recentlog['blocked'] = [];
 }
 
+/**
+ * @param {string} url
+ */
 function utmClean(url) {
   if (localStorage['utm'] == 'true') {
     var paramstart = url.indexOf('?');
@@ -689,6 +759,9 @@ function utmClean(url) {
   return false;
 }
 
+/**
+ * @param {string} url
+ */
 function hashTrackingClean(url) {
   if (
     localStorage['hashchecking'] == 'true' &&
@@ -704,13 +777,17 @@ function hashTrackingClean(url) {
   return false;
 }
 
+/**
+ * @param {string} url
+ * @returns {StringBool}
+ */
 function enabled(url) {
   var domainCheckStatus = domainCheck(url);
   if (
     localStorage['enable'] == 'true' &&
-    domainCheckStatus != '0' &&
-    (domainCheckStatus == '1' ||
-      (localStorage['mode'] == 'block' && domainCheckStatus == '-1')) &&
+    domainCheckStatus != 0 &&
+    (domainCheckStatus == 1 ||
+      (localStorage['mode'] == 'block' && domainCheckStatus == -1)) &&
     url.indexOf('https://chrome.google.com/webstore') == -1 &&
     (url.substring(0, 4) == 'http' || url == 'chrome://newtab/')
   )
@@ -718,6 +795,11 @@ function enabled(url) {
   return 'false';
 }
 
+/**
+ * @param {string} domainname
+ * @param {FingerprintType} fptype
+ * @returns {FingerprintEnabledType}
+ */
 function enabledfp(domainname, fptype) {
   if (
     (localStorage['canvas'] == 'false' && fptype == 'fpCanvas') ||
@@ -734,12 +816,17 @@ function enabledfp(domainname, fptype) {
     (localStorage['clipboard'] == 'false' && fptype == 'fpClipboard') ||
     (localStorage['browserplugins'] == 'false' && fptype == 'fpBrowserPlugins')
   )
-    return '-1';
-  if (in_array(domainname, fpLists[fptype])) return '1';
-  if (in_array(domainname, fpListsSession[fptype])) return '2';
-  return '-1';
+    return -1;
+  if (in_array(domainname, fpLists[fptype])) return 1;
+  if (in_array(domainname, fpListsSession[fptype])) return 2;
+  return -1;
 }
 
+/**
+ * @param {string} domain
+ * @param {1| 2} [req]
+ * @returns {DomainCheckResult}
+ */
 function domainCheck(domain, req) {
   if (req === undefined) {
     var baddiesCheck = baddies(
@@ -750,44 +837,51 @@ function domainCheck(domain, req) {
     if (
       (localStorage['annoyances'] == 'true' &&
         localStorage['annoyancesmode'] == 'strict' &&
-        baddiesCheck == '1') ||
-      (localStorage['antisocial'] == 'true' && baddiesCheck == '2') ||
+        baddiesCheck == 1) ||
+      (localStorage['antisocial'] == 'true' && baddiesCheck == 2) ||
       (localStorage['annoyances'] == 'true' &&
         localStorage['annoyancesmode'] == 'relaxed' &&
         baddiesCheck)
     )
-      return '1';
+      return 1;
   }
   var domainname = extractDomainFromURL(domain);
-  if (req != '2') {
+  if (req != 2) {
     if (
       localStorage['mode'] == 'block' &&
       in_array(domainname, sessionWhiteList)
     )
-      return '0';
+      return 0;
     if (
       localStorage['mode'] == 'allow' &&
       in_array(domainname, sessionBlackList)
     )
-      return '1';
+      return 1;
   }
-  if (in_array(domainname, whiteList)) return '0';
-  if (in_array(domainname, blackList)) return '1';
+  if (in_array(domainname, whiteList)) return 0;
+  if (in_array(domainname, blackList)) return 1;
   if (req === undefined) {
     if (
       localStorage['annoyances'] == 'true' &&
       localStorage['annoyancesmode'] == 'relaxed' &&
       baddiesCheck
     )
-      return '1';
+      return 1;
   }
-  return '-1';
+  return -1;
 }
 
+/**
+ * @param {HostsList | string[]} hosts
+ */
 function domainSort(hosts) {
-  var sorted_hosts = new Array();
-  var split_hosts = new Array();
   if (hosts.length > 0) {
+    /** @type {HostsList} */
+    const sorted_hosts = new Array();
+
+    /** @type {SplitHostsEntry[]} */
+    const split_hosts = new Array();
+
     if (typeof hosts[0] === 'object') {
       for (var h in hosts) {
         split_hosts.push([
@@ -814,8 +908,15 @@ function domainSort(hosts) {
         ]);
       }
     } else {
+      /** @type {string[]} */
+      const sorted_hosts = new Array();
+
+      /** @type {[string, string][]} */
+      const split_hosts = new Array();
+
       for (var h in hosts) {
-        split_hosts.push([getDomain(hosts[h]), hosts[h]]);
+        const host = /** @type {string} */ (hosts[h]);
+        split_hosts.push([getDomain(host), host]);
       }
       split_hosts.sort();
       for (var h in split_hosts) {
@@ -827,12 +928,19 @@ function domainSort(hosts) {
   return hosts;
 }
 
+/**
+ * @param {string} domain
+ */
 function trustCheck(domain) {
-  if (in_array(domain, trustList)) return '1';
-  if (in_array(domain, distrustList)) return '2';
+  if (in_array(domain, trustList)) return 1;
+  if (in_array(domain, distrustList)) return 2;
   return false;
 }
 
+/**
+ * @param {string} domain
+ * @param {NumericBool} mode
+ */
 function topHandler(domain, mode) {
   if (domain) {
     if (
@@ -842,7 +950,7 @@ function topHandler(domain, mode) {
       !domain.match(/^(?:\[[A-Fa-f0-9:.]+\])(:[0-9]+)?$/g)
     )
       domain = '**.' + getDomain(domain);
-    if (mode != '0' && mode != '1') fpDomainHandler(domain, mode, 1);
+    if (mode != 0 && mode != 1) fpDomainHandler(domain, mode, 1);
     else domainHandler(domain, mode);
     changed = true;
     return true;
@@ -850,6 +958,10 @@ function topHandler(domain, mode) {
   return false;
 }
 
+/**
+ * @param {string} needle
+ * @param {string[]} haystack
+ */
 function haystackSearch(needle, haystack) {
   var keys = [];
   var rootdomain = getDomain(needle);
@@ -861,25 +973,41 @@ function haystackSearch(needle, haystack) {
   return keys;
 }
 
+/**
+ * @param {string} domain
+ * @param {HandlerAction} action
+ */
 function domainHandler(domain, action, listtype) {
   if (listtype === undefined) listtype = 0;
   if (domain) {
-    action = parseInt(action);
+    action =
+      typeof action === 'number'
+        ? action
+        : /** @type {HandlerAction} */ (parseInt(action));
+
     // Initialize local storage
     if (listtype == 0) {
       if (typeof localStorage['whiteList'] === 'undefined')
         localStorage['whiteList'] = JSON.stringify([]);
       if (typeof localStorage['blackList'] === 'undefined')
         localStorage['blackList'] = JSON.stringify([]);
-      var tempWhitelist = JSON.parse(localStorage['whiteList']);
-      var tempBlacklist = JSON.parse(localStorage['blackList']);
+      /** @type {string[]} */ var tempWhitelist = JSON.parse(
+        localStorage['whiteList'],
+      );
+      /** @type {string[]} */ var tempBlacklist = JSON.parse(
+        localStorage['blackList'],
+      );
     } else if (listtype == 1) {
       if (typeof sessionStorage['whiteList'] === 'undefined')
         sessionStorage['whiteList'] = JSON.stringify([]);
       if (typeof sessionStorage['blackList'] === 'undefined')
         sessionStorage['blackList'] = JSON.stringify([]);
-      var tempWhitelist = JSON.parse(sessionStorage['whiteList']);
-      var tempBlacklist = JSON.parse(sessionStorage['blackList']);
+      /** @type {string[]} */ var tempWhitelist = JSON.parse(
+        sessionStorage['whiteList'],
+      );
+      /** @type {string[]} */ var tempBlacklist = JSON.parse(
+        sessionStorage['blackList'],
+      );
     }
     // Remove domain from whitelist and blacklist
     var pos = tempWhitelist.indexOf(domain);
@@ -987,10 +1115,20 @@ function domainHandler(domain, action, listtype) {
   return false;
 }
 
+/**
+ * @param {string} domain
+ * @param {FingerprintType} listtype
+ * @param {HandlerAction} action
+ * @param {NumericBool} [temp]
+ */
 function fpDomainHandler(domain, listtype, action, temp) {
   if (temp === undefined) temp = 0;
   if (domain) {
-    action = parseInt(action);
+    action =
+      typeof action === 'number'
+        ? action
+        : /** @type {HandlerAction} */ (parseInt(action));
+
     // Initialize local storage
     if (temp == 0) {
       if (typeof localStorage[listtype] === 'undefined')
@@ -1072,22 +1210,33 @@ function fpDomainHandler(domain, listtype, action, temp) {
   return false;
 }
 
+/** @param {OptionName} opt  */
 function optionExists(opt) {
   return typeof localStorage[opt] !== 'undefined';
 }
 
+/**
+ * @param {OptionName} opt
+ * @param {unknown} val
+ */
 function defaultOptionValue(opt, val) {
   if (!optionExists(opt)) localStorage[opt] = val;
 }
 
+/**
+ * @param {1 | 2} [force]
+ */
 function setDefaultOptions(force) {
+  /**
+   * @type {Settings}
+   */
   var settingNames = {
     version: version,
     sync: 'false',
     syncenable: 'false',
     syncnotify: 'true',
     syncfromnotify: 'true',
-    lastSync: '0',
+    lastSync: 0,
     updatenotify: 'true',
     enable: 'true',
     mode: 'block',
@@ -1115,7 +1264,7 @@ function setDefaultOptions(force) {
     bluetooth: 'false',
     timezone: 'false',
     keyboard: 'false',
-    keydelta: '40',
+    keydelta: 40,
     xml: 'true',
     annoyances: 'true',
     annoyancesmode: 'relaxed',
@@ -1134,7 +1283,7 @@ function setDefaultOptions(force) {
     useragentspoof: 'off',
     useragentspoof_os: 'off',
     useragentinterval: 'off',
-    useragentintervalmins: '5',
+    useragentintervalmins: 5,
     uaspoofallow: 'false',
     referrerspoof: 'off',
     referrerspoofdenywhitelisted: 'false',
@@ -1152,7 +1301,7 @@ function setDefaultOptions(force) {
     updated = true;
   } else {
     for (var i in settingNames) {
-      defaultOptionValue(i, settingNames[i]);
+      defaultOptionValue(/** @type {Setting} */ (i), settingNames[i]);
     }
   }
   if (optionExists('updatemessagenotify'))
@@ -1163,109 +1312,104 @@ function setDefaultOptions(force) {
     ]);
     delete localStorage['useragentcustom'];
   }
-  if ((force && force == '2') || !optionExists('blackList'))
+  if ((force && force == 2) || !optionExists('blackList'))
     localStorage['blackList'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('whiteList'))
+  if ((force && force == 2) || !optionExists('whiteList'))
     localStorage['whiteList'] = JSON.stringify(['*.googlevideo.com']);
-  if ((force && force == '2') || !optionExists('fpCanvas'))
+  if ((force && force == 2) || !optionExists('fpCanvas'))
     localStorage['fpCanvas'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpCanvasFont'))
+  if ((force && force == 2) || !optionExists('fpCanvasFont'))
     localStorage['fpCanvasFont'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpAudio'))
+  if ((force && force == 2) || !optionExists('fpAudio'))
     localStorage['fpAudio'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpWebGL'))
+  if ((force && force == 2) || !optionExists('fpWebGL'))
     localStorage['fpWebGL'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpBattery'))
+  if ((force && force == 2) || !optionExists('fpBattery'))
     localStorage['fpBattery'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpDevice'))
+  if ((force && force == 2) || !optionExists('fpDevice'))
     localStorage['fpDevice'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpGamepad'))
+  if ((force && force == 2) || !optionExists('fpGamepad'))
     localStorage['fpGamepad'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpWebVR'))
+  if ((force && force == 2) || !optionExists('fpWebVR'))
     localStorage['fpWebVR'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpBluetooth'))
+  if ((force && force == 2) || !optionExists('fpBluetooth'))
     localStorage['fpBluetooth'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpClientRectangles'))
+  if ((force && force == 2) || !optionExists('fpClientRectangles'))
     localStorage['fpClientRectangles'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpClipboard'))
+  if ((force && force == 2) || !optionExists('fpClipboard'))
     localStorage['fpClipboard'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('fpBrowserPlugins'))
+  if ((force && force == 2) || !optionExists('fpBrowserPlugins'))
     localStorage['fpBrowserPlugins'] = JSON.stringify([]);
-  if ((force && force == '2') || !optionExists('useragent'))
+  if ((force && force == 2) || !optionExists('useragent'))
     localStorage['useragent'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['blackList'] === 'undefined'
   )
     sessionStorage['blackList'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['whiteList'] === 'undefined'
   )
     sessionStorage['whiteList'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpCanvas'] === 'undefined'
   )
     sessionStorage['fpCanvas'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpCanvasFont'] === 'undefined'
   )
     sessionStorage['fpCanvasFont'] = JSON.stringify([]);
-  if (
-    (force && force == '2') ||
-    typeof sessionStorage['fpAudio'] === 'undefined'
-  )
+  if ((force && force == 2) || typeof sessionStorage['fpAudio'] === 'undefined')
     sessionStorage['fpAudio'] = JSON.stringify([]);
-  if (
-    (force && force == '2') ||
-    typeof sessionStorage['fpWebGL'] === 'undefined'
-  )
+  if ((force && force == 2) || typeof sessionStorage['fpWebGL'] === 'undefined')
     sessionStorage['fpWebGL'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpBattery'] === 'undefined'
   )
     sessionStorage['fpBattery'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpDevice'] === 'undefined'
   )
     sessionStorage['fpDevice'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpGamepad'] === 'undefined'
   )
     sessionStorage['fpGamepad'] = JSON.stringify([]);
-  if (
-    (force && force == '2') ||
-    typeof sessionStorage['fpWebVR'] === 'undefined'
-  )
+  if ((force && force == 2) || typeof sessionStorage['fpWebVR'] === 'undefined')
     sessionStorage['fpWebVR'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpBluetooth'] === 'undefined'
   )
     sessionStorage['fpBluetooth'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpClientRectangles'] === 'undefined'
   )
     sessionStorage['fpClientRectangles'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpClipboard'] === 'undefined'
   )
     sessionStorage['fpClipboard'] = JSON.stringify([]);
   if (
-    (force && force == '2') ||
+    (force && force == 2) ||
     typeof sessionStorage['fpBrowserPlugins'] === 'undefined'
   )
     sessionStorage['fpBrowserPlugins'] = JSON.stringify([]);
+
   chrome.browserAction.setBadgeBackgroundColor({ color: [208, 0, 24, 255] });
 }
 
+/**
+ * @param {number} tabId
+ */
 function updateCount(tabId) {
   var TAB_ITEMS = ITEMS[tabId] || (ITEMS[tabId] = [0]);
   var TAB_BLOCKED_COUNT = ++TAB_ITEMS[0];
@@ -1279,6 +1423,9 @@ function updateCount(tabId) {
   });
 }
 
+/**
+ * @param {number} tabId
+ */
 function initCount(tabId) {
   var TAB_ITEMS = ITEMS[tabId] || (ITEMS[tabId] = [0]);
   var TAB_BLOCKED_COUNT = TAB_ITEMS[0];
@@ -1293,12 +1440,19 @@ function initCount(tabId) {
     });
 }
 
+/**
+ * @param {string} str
+ */
 function removeHash(str) {
   var hashindex = str.indexOf('#');
   if (hashindex != -1) return str.substr(0, hashindex);
   return str;
 }
 
+/**
+ * @param {number} id
+ * @param {string} url
+ */
 function resetTabData(id, url) {
   if (id && url) {
     ITEMS[id] = [0];
@@ -1309,9 +1463,9 @@ function resetTabData(id, url) {
 }
 
 function revokeTemp() {
-  sessionBlackList = '';
-  sessionWhiteList = '';
-  fpListsSession = [];
+  sessionBlackList = [];
+  sessionWhiteList = [];
+  fpListsSession = {};
   sessionStorage['blackList'] = JSON.stringify([]);
   sessionStorage['whiteList'] = JSON.stringify([]);
   sessionStorage['fpCanvas'] = JSON.stringify([]);
@@ -1328,6 +1482,9 @@ function revokeTemp() {
   sessionStorage['fpBrowserPlugins'] = JSON.stringify([]);
 }
 
+/**
+ * @param {number} duration
+ */
 function statuschanger(duration) {
   window.clearTimeout(reenabletimer);
   if (localStorage['enable'] == 'true') {
@@ -1346,6 +1503,9 @@ function statuschanger(duration) {
   reinitContext();
 }
 
+/**
+ * @param {TempRequest} request
+ */
 function tempHandler(request) {
   if (typeof request.url === 'object') {
     for (var i = 0, forcount = request.url.length; i < forcount; i++) {
@@ -1359,7 +1519,7 @@ function tempHandler(request) {
           (localStorage['annoyances'] == 'true' &&
             localStorage['annoyancesmode'] == 'strict' &&
             baddiesStatus == 1) ||
-          (localStorage['antisocial'] == 'true' && baddiesStatus == '2')
+          (localStorage['antisocial'] == 'true' && baddiesStatus == 2)
         ) {
           // do nothing
         } else {
@@ -1378,7 +1538,7 @@ function tempHandler(request) {
       (localStorage['annoyances'] == 'true' &&
         localStorage['annoyancesmode'] == 'strict' &&
         baddiesStatus == 1) ||
-      (localStorage['antisocial'] == 'true' && baddiesStatus == '2')
+      (localStorage['antisocial'] == 'true' && baddiesStatus == 2)
     ) {
       // do nothing
     } else {
@@ -1389,6 +1549,9 @@ function tempHandler(request) {
   changed = true;
 }
 
+/**
+ * @param {RemoveTempRequest} request
+ */
 function removeTempHandler(request) {
   if (typeof request.url === 'object') {
     for (var i = 0, forcount = request.url.length; i < forcount; i++) {
@@ -1405,6 +1568,9 @@ function getSessionList() {
   else if (localStorage['mode'] == 'allow') return sessionBlackList;
 }
 
+/**
+ * @param {string} domain
+ */
 function checkTemp(domain) {
   return in_array(domain, getSessionList());
 }
@@ -1502,220 +1668,202 @@ chrome.runtime.onConnect.addListener(function (port) {
   });
 });
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  if (request.reqtype == 'get-settings') {
-    var fpListStatus = [];
-    var extractedDomain = extractDomainFromURL(sender.tab.url);
-    for (var i in fpTypes) {
-      fpListStatus[fpTypes[i]] = enabledfp(extractedDomain, fpTypes[i]);
-    }
-    sendResponse({
-      status: localStorage['enable'],
-      enable: enabled(sender.tab.url),
-      fp_canvas: fpListStatus['fpCanvas'],
-      fp_canvasfont: fpListStatus['fpCanvasFont'],
-      fp_audio: fpListStatus['fpAudio'],
-      fp_webgl: fpListStatus['fpWebGL'],
-      fp_battery: fpListStatus['fpBattery'],
-      fp_device: fpListStatus['fpDevice'],
-      fp_gamepad: fpListStatus['fpGamepad'],
-      fp_webvr: fpListStatus['fpWebVR'],
-      fp_bluetooth: fpListStatus['fpBluetooth'],
-      fp_clientrectangles: fpListStatus['fpClientRectangles'],
-      fp_clipboard: fpListStatus['fpClipboard'],
-      fp_browserplugins: fpListStatus['fpBrowserPlugins'],
-      experimental: experimental,
-      mode: localStorage['mode'],
-      annoyancesmode: localStorage['annoyancesmode'],
-      antisocial: localStorage['antisocial'],
-      whitelist: whiteList,
-      blacklist: blackList,
-      whitelistSession: sessionWhiteList,
-      blackListSession: sessionBlackList,
-      script: localStorage['script'],
-      noscript: localStorage['noscript'],
-      object: localStorage['object'],
-      applet: localStorage['applet'],
-      embed: localStorage['embed'],
-      iframe: localStorage['iframe'],
-      frame: localStorage['frame'],
-      audio: localStorage['audio'],
-      video: localStorage['video'],
-      image: localStorage['image'],
-      annoyances: localStorage['annoyances'],
-      preservesamedomain: localStorage['preservesamedomain'],
-      canvas: localStorage['canvas'],
-      canvasfont: localStorage['canvasfont'],
-      audioblock: localStorage['audioblock'],
-      webgl: localStorage['webgl'],
-      battery: localStorage['battery'],
-      webrtcdevice: localStorage['webrtcdevice'],
-      gamepad: localStorage['gamepad'],
-      webvr: localStorage['webvr'],
-      bluetooth: localStorage['bluetooth'],
-      clientrects: localStorage['clientrects'],
-      timezone: localStorage['timezone'],
-      browserplugins: localStorage['browserplugins'],
-      keyboard: localStorage['keyboard'],
-      keydelta: localStorage['keydelta'],
-      webbugs: localStorage['webbugs'],
-      referrer: localStorage['referrer'],
-      referrerspoofdenywhitelisted:
-        localStorage['referrerspoofdenywhitelisted'],
-      linktarget: localStorage['linktarget'],
-      paranoia: localStorage['paranoia'],
-      clipboard: localStorage['clipboard'],
-      dataurl: localStorage['dataurl'],
-      useragent: userAgent,
-      uaspoofallow: localStorage['uaspoofallow'],
-    });
-    if (typeof ITEMS[sender.tab.id] === 'undefined') {
-      resetTabData(sender.tab.id, sender.tab.url);
-    } else {
-      if (
-        (request.iframe != '1' &&
-          ((ITEMS[sender.tab.id]['url'] != sender.tab.url &&
-            (sender.tab.url.indexOf('#') != -1 ||
-              ITEMS[sender.tab.id]['url'].indexOf('#') != -1) &&
-            removeHash(sender.tab.url) !=
-              removeHash(ITEMS[sender.tab.id]['url'])) ||
-            (sender.tab.url.indexOf('#') == -1 &&
-              ITEMS[sender.tab.id]['url'].indexOf('#') == -1 &&
-              sender.tab.url != ITEMS[sender.tab.id]['url']) ||
-            changed)) ||
-        sender.tab.url.indexOf('https://chrome.google.com/webstore') != -1
-      ) {
-        if (changed && ITEMS[sender.tab.id]['url'] == sender.tab.url) {
-          initCount(sender.tab.id);
-        } else {
-          resetTabData(sender.tab.id, sender.tab.url);
+chrome.runtime.onMessage.addListener(
+  /**
+   * @template {MessageRequest} T
+   * @param {T} request
+   * @param {chrome.runtime.MessageSender} sender
+   * @param {(response: never) => void} sendResponse
+   */
+  function (request, sender, sendResponse) {
+    if (request.reqtype == 'get-settings') {
+      /** @type {FingerprintEnabledType[]} */
+      var fpListStatus = [];
+      var extractedDomain = extractDomainFromURL(sender.tab.url);
+      for (var i in fpTypes) {
+        fpListStatus[fpTypes[i]] = enabledfp(extractedDomain, fpTypes[i]);
+      }
+
+      const send = /** @type {SendResponseCallback<GetSettingsRequest>} */ (
+        sendResponse
+      );
+
+      send({
+        status: localStorage['enable'],
+        enable: enabled(sender.tab.url),
+        fp_canvas: fpListStatus['fpCanvas'],
+        fp_canvasfont: fpListStatus['fpCanvasFont'],
+        fp_audio: fpListStatus['fpAudio'],
+        fp_webgl: fpListStatus['fpWebGL'],
+        fp_battery: fpListStatus['fpBattery'],
+        fp_device: fpListStatus['fpDevice'],
+        fp_gamepad: fpListStatus['fpGamepad'],
+        fp_webvr: fpListStatus['fpWebVR'],
+        fp_bluetooth: fpListStatus['fpBluetooth'],
+        fp_clientrectangles: fpListStatus['fpClientRectangles'],
+        fp_clipboard: fpListStatus['fpClipboard'],
+        fp_browserplugins: fpListStatus['fpBrowserPlugins'],
+        experimental: experimental,
+        mode: localStorage['mode'],
+        annoyancesmode: localStorage['annoyancesmode'],
+        antisocial: localStorage['antisocial'],
+        whitelist: whiteList,
+        blacklist: blackList,
+        whitelistSession: sessionWhiteList,
+        blackListSession: sessionBlackList,
+        script: localStorage['script'],
+        noscript: localStorage['noscript'],
+        object: localStorage['object'],
+        applet: localStorage['applet'],
+        embed: localStorage['embed'],
+        iframe: localStorage['iframe'],
+        frame: localStorage['frame'],
+        audio: localStorage['audio'],
+        video: localStorage['video'],
+        image: localStorage['image'],
+        annoyances: localStorage['annoyances'],
+        preservesamedomain: localStorage['preservesamedomain'],
+        canvas: localStorage['canvas'],
+        canvasfont: localStorage['canvasfont'],
+        audioblock: localStorage['audioblock'],
+        webgl: localStorage['webgl'],
+        battery: localStorage['battery'],
+        webrtcdevice: localStorage['webrtcdevice'],
+        gamepad: localStorage['gamepad'],
+        webvr: localStorage['webvr'],
+        bluetooth: localStorage['bluetooth'],
+        clientrects: localStorage['clientrects'],
+        timezone: localStorage['timezone'],
+        browserplugins: localStorage['browserplugins'],
+        keyboard: localStorage['keyboard'],
+        keydelta: localStorage['keydelta'],
+        webbugs: localStorage['webbugs'],
+        referrer: localStorage['referrer'],
+        referrerspoofdenywhitelisted:
+          localStorage['referrerspoofdenywhitelisted'],
+        linktarget: localStorage['linktarget'],
+        paranoia: localStorage['paranoia'],
+        clipboard: localStorage['clipboard'],
+        dataurl: localStorage['dataurl'],
+        useragent: userAgent,
+        uaspoofallow: localStorage['uaspoofallow'],
+      });
+
+      if (typeof ITEMS[sender.tab.id] === 'undefined') {
+        resetTabData(sender.tab.id, sender.tab.url);
+      } else {
+        if (
+          (request.iframe != 1 &&
+            ((ITEMS[sender.tab.id]['url'] != sender.tab.url &&
+              (sender.tab.url.indexOf('#') != -1 ||
+                ITEMS[sender.tab.id]['url'].indexOf('#') != -1) &&
+              removeHash(sender.tab.url) !=
+                removeHash(ITEMS[sender.tab.id]['url'])) ||
+              (sender.tab.url.indexOf('#') == -1 &&
+                ITEMS[sender.tab.id]['url'].indexOf('#') == -1 &&
+                sender.tab.url != ITEMS[sender.tab.id]['url']) ||
+              changed)) ||
+          sender.tab.url.indexOf('https://chrome.google.com/webstore') != -1
+        ) {
+          if (changed && ITEMS[sender.tab.id]['url'] == sender.tab.url) {
+            initCount(sender.tab.id);
+          } else {
+            resetTabData(sender.tab.id, sender.tab.url);
+          }
         }
       }
-    }
-    var fptype;
-    var cleanedUrl = removeParams(sender.tab.url);
-    for (var i in fpListStatus) {
-      if (fpListStatus[i] != '-1') {
-        if (i == 'fpCanvas') fptype = 'Canvas Fingerprint';
-        else if (i == 'fpCanvasFont') fptype = 'Canvas Font Access';
-        else if (i == 'fpAudio') fptype = 'Audio Fingerprint';
-        else if (i == 'fpWebGL') fptype = 'WebGL Fingerprint';
-        else if (i == 'fpBattery') fptype = 'Battery Fingerprint';
-        else if (i == 'fpDevice') fptype = 'Device Enumeration';
-        else if (i == 'fpGamepad') fptype = 'Gamepad Enumeration';
-        else if (i == 'fpWebVR') fptype = 'WebVR Enumeration';
-        else if (i == 'fpBluetooth') fptype = 'Bluetooth Enumeration';
-        else if (i == 'fpClientRectangles') fptype = 'Client Rectangles';
-        else if (i == 'fpClipboard') fptype = 'Clipboard Interference';
-        else if (i == 'fpBrowserPlugins')
-          fptype = 'Browser Plugins Enumeration';
-        if (extractedDomain.substr(0, 4) == 'www.')
-          extractedDomain = extractedDomain.substr(4);
-        ITEMS[sender.tab.id]['allowed'].push([
-          cleanedUrl,
-          fptype,
-          extractedDomain,
-          fpListStatus[i],
-          false,
-          true,
-        ]);
-        recentlog['allowed'].push([
-          new Date().getTime(),
-          sender.tab.url,
-          fptype,
-          extractedDomain,
-          sender.tab.url,
-          fpListStatus[i],
-          false,
-          true,
-        ]);
-        updateRecents('allowed');
-      }
-    }
-  } else if (request.reqtype == 'get-list') {
-    if (typeof ITEMS[request.tid] === 'undefined') {
-      sendResponse('reload');
-      return;
-    }
-    var enableval = domainCheck(request.url);
-    var trustType = trustCheck(extractDomainFromURL(request.url));
-    if (trustType == '1') enableval = 3;
-    else if (trustType == '2') enableval = 4;
-    var sessionfplist = false;
-    for (var i in fpListsSession) {
-      if (fpListsSession[i].length != 0) {
-        sessionfplist = true;
-        break;
-      }
-    }
-    sendResponse({
-      status: localStorage['enable'],
-      enable: enableval,
-      mode: localStorage['mode'],
-      annoyancesmode: localStorage['annoyancesmode'],
-      antisocial: localStorage['antisocial'],
-      annoyances: localStorage['annoyances'],
-      closepage: localStorage['classicoptions'],
-      rating: localStorage['rating'],
-      temp: getSessionList(),
-      tempfp: sessionfplist,
-      blockeditems: ITEMS[request.tid]['blocked'],
-      alloweditems: ITEMS[request.tid]['allowed'],
-      domainsort: localStorage['domainsort'],
-    });
-    changed = true;
-  } else if (request.reqtype == 'update-blocked') {
-    if (request.src) {
-      var cleanedUrl = removeParams(request.src);
-      if (typeof ITEMS[sender.tab.id]['blocked'] === 'undefined')
-        ITEMS[sender.tab.id]['blocked'] = [];
-      if (
-        !UrlInList(cleanedUrl, ITEMS[sender.tab.id]['blocked']) ||
-        request.node == 'NOSCRIPT' ||
-        request.node == 'Canvas Fingerprint' ||
-        request.node == 'Canvas Font Access' ||
-        request.node == 'Audio Fingerprint' ||
-        request.node == 'WebGL Fingerprint' ||
-        request.node == 'Battery Fingerprint' ||
-        request.node == 'Device Enumeration' ||
-        request.node == 'Gamepad Enumeration' ||
-        request.node == 'WebVR Enumeration' ||
-        request.node == 'Bluetooth Enumeration' ||
-        request.node == 'Spoofed Timezone' ||
-        request.node == 'Client Rectangles' ||
-        request.node == 'Clipboard Interference' ||
-        request.node == 'Data URL' ||
-        request.node == 'Browser Plugins Enumeration'
-      ) {
-        var extractedDomain = extractDomainFromURL(request.src);
-        if (extractedDomain.substr(0, 4) == 'www.')
-          extractedDomain = extractedDomain.substr(4);
-        var extractedTabDomain = extractDomainFromURL(
-          ITEMS[sender.tab.id]['url'],
-        );
-        if (request.node == 'NOSCRIPT') {
-          ITEMS[sender.tab.id]['blocked'].push([
-            request.src,
-            request.node,
-            request.src,
-            '-1',
-            '-1',
+
+      /** @type {FingerprintDescription} */ var fptype;
+      var cleanedUrl = removeParams(sender.tab.url);
+      for (var i in fpListStatus) {
+        if (fpListStatus[i] != -1) {
+          if (i == 'fpCanvas') fptype = 'Canvas Fingerprint';
+          else if (i == 'fpCanvasFont') fptype = 'Canvas Font Access';
+          else if (i == 'fpAudio') fptype = 'Audio Fingerprint';
+          else if (i == 'fpWebGL') fptype = 'WebGL Fingerprint';
+          else if (i == 'fpBattery') fptype = 'Battery Fingerprint';
+          else if (i == 'fpDevice') fptype = 'Device Enumeration';
+          else if (i == 'fpGamepad') fptype = 'Gamepad Enumeration';
+          else if (i == 'fpWebVR') fptype = 'WebVR Enumeration';
+          else if (i == 'fpBluetooth') fptype = 'Bluetooth Enumeration';
+          else if (i == 'fpClientRectangles') fptype = 'Client Rectangles';
+          else if (i == 'fpClipboard') fptype = 'Clipboard Interference';
+          else if (i == 'fpBrowserPlugins')
+            fptype = 'Browser Plugins Enumeration';
+
+          if (extractedDomain.substr(0, 4) == 'www.')
+            extractedDomain = extractedDomain.substr(4);
+
+          ITEMS[sender.tab.id]['allowed'].push([
+            cleanedUrl,
+            fptype,
+            extractedDomain,
+            fpListStatus[i],
             false,
-            false,
+            true,
           ]);
-          recentlog['blocked'].push([
+
+          recentlog['allowed'].push([
             new Date().getTime(),
-            request.src,
-            request.node,
-            request.src,
-            ITEMS[sender.tab.id]['url'],
-            '-1',
-            '-1',
+            sender.tab.url,
+            fptype,
+            extractedDomain,
+            sender.tab.url,
+            fpListStatus[i],
             false,
-            false,
+            true,
           ]);
-          updateRecents('blocked');
-        } else if (
+
+          updateRecents('allowed');
+        }
+      }
+    } else if (request.reqtype == 'get-list') {
+      const send = /** @type {SendResponseCallback<GetListRequest>} */ (
+        sendResponse
+      );
+
+      if (typeof ITEMS[request.tid] === 'undefined') {
+        send('reload');
+        return;
+      }
+
+      /** @type {EnableValue} */ var enableval = domainCheck(request.url);
+      var trustType = trustCheck(extractDomainFromURL(request.url));
+      if (trustType == 1) enableval = 3;
+      else if (trustType == 2) enableval = 4;
+      var sessionfplist = false;
+      for (var i in fpListsSession) {
+        if (fpListsSession[i].length != 0) {
+          sessionfplist = true;
+          break;
+        }
+      }
+
+      send({
+        status: localStorage['enable'],
+        enable: enableval,
+        mode: localStorage['mode'],
+        annoyancesmode: localStorage['annoyancesmode'],
+        antisocial: localStorage['antisocial'],
+        annoyances: localStorage['annoyances'],
+        closepage: localStorage['classicoptions'],
+        rating: localStorage['rating'],
+        temp: getSessionList(),
+        tempfp: sessionfplist,
+        blockeditems: ITEMS[request.tid]['blocked'],
+        alloweditems: ITEMS[request.tid]['allowed'],
+        domainsort: localStorage['domainsort'],
+      });
+
+      changed = true;
+    } else if (request.reqtype == 'update-blocked') {
+      if (request.src) {
+        var cleanedUrl = removeParams(request.src);
+        if (typeof ITEMS[sender.tab.id]['blocked'] === 'undefined')
+          ITEMS[sender.tab.id]['blocked'] = [];
+        if (
+          !UrlInList(cleanedUrl, ITEMS[sender.tab.id]['blocked']) ||
+          request.node == 'NOSCRIPT' ||
           request.node == 'Canvas Fingerprint' ||
           request.node == 'Canvas Font Access' ||
           request.node == 'Audio Fingerprint' ||
@@ -1731,130 +1879,179 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
           request.node == 'Data URL' ||
           request.node == 'Browser Plugins Enumeration'
         ) {
-          ITEMS[sender.tab.id]['blocked'].push([
-            request.src,
-            request.node,
-            extractedDomain,
-            '-1',
-            '-1',
-            false,
-            true,
-          ]);
-          recentlog['blocked'].push([
-            new Date().getTime(),
-            request.src,
-            request.node,
-            extractedDomain,
+          var extractedDomain = extractDomainFromURL(request.src);
+          if (extractedDomain.substr(0, 4) == 'www.')
+            extractedDomain = extractedDomain.substr(4);
+          var extractedTabDomain = extractDomainFromURL(
             ITEMS[sender.tab.id]['url'],
-            '-1',
-            '-1',
-            false,
-            true,
-          ]);
-          updateRecents('blocked');
-        } else {
-          var blockedDomainCheck = domainCheck(request.src, 1);
-          var blockedTabDomainCheck = domainCheck(extractedTabDomain, 1);
-          var blockedDomainBaddieCheck = baddies(
+          );
+          if (request.node == 'NOSCRIPT') {
+            ITEMS[sender.tab.id]['blocked'].push([
+              request.src,
+              request.node,
+              request.src,
+              -1,
+              -1,
+              false,
+              false,
+            ]);
+            recentlog['blocked'].push([
+              new Date().getTime(),
+              request.src,
+              request.node,
+              request.src,
+              ITEMS[sender.tab.id]['url'],
+              -1,
+              -1,
+              false,
+              false,
+            ]);
+            updateRecents('blocked');
+          } else if (
+            request.node == 'Canvas Fingerprint' ||
+            request.node == 'Canvas Font Access' ||
+            request.node == 'Audio Fingerprint' ||
+            request.node == 'WebGL Fingerprint' ||
+            request.node == 'Battery Fingerprint' ||
+            request.node == 'Device Enumeration' ||
+            request.node == 'Gamepad Enumeration' ||
+            request.node == 'WebVR Enumeration' ||
+            request.node == 'Bluetooth Enumeration' ||
+            request.node == 'Spoofed Timezone' ||
+            request.node == 'Client Rectangles' ||
+            request.node == 'Clipboard Interference' ||
+            request.node == 'Data URL' ||
+            request.node == 'Browser Plugins Enumeration'
+          ) {
+            ITEMS[sender.tab.id]['blocked'].push([
+              request.src,
+              request.node,
+              extractedDomain,
+              -1,
+              -1,
+              false,
+              true,
+            ]);
+            recentlog['blocked'].push([
+              new Date().getTime(),
+              request.src,
+              request.node,
+              extractedDomain,
+              ITEMS[sender.tab.id]['url'],
+              -1,
+              -1,
+              false,
+              true,
+            ]);
+            updateRecents('blocked');
+          } else {
+            var blockedDomainCheck = domainCheck(request.src, 1);
+            var blockedTabDomainCheck = domainCheck(extractedTabDomain, 1);
+            var blockedDomainBaddieCheck = baddies(
+              request.src,
+              localStorage['annoyancesmode'],
+              localStorage['antisocial'],
+              2,
+            );
+            ITEMS[sender.tab.id]['blocked'].push([
+              cleanedUrl,
+              request.node,
+              extractedDomain,
+              blockedDomainCheck,
+              blockedTabDomainCheck,
+              blockedDomainBaddieCheck,
+              false,
+            ]);
+            recentlog['blocked'].push([
+              new Date().getTime(),
+              request.src,
+              request.node,
+              extractedDomain,
+              ITEMS[sender.tab.id]['url'],
+              blockedDomainCheck,
+              blockedTabDomainCheck,
+              blockedDomainBaddieCheck,
+              false,
+            ]);
+            updateRecents('blocked');
+          }
+          updateCount(sender.tab.id);
+        }
+      }
+    } else if (request.reqtype == 'update-allowed') {
+      if (request.src) {
+        if (typeof ITEMS[sender.tab.id]['allowed'] === 'undefined')
+          ITEMS[sender.tab.id]['allowed'] = [];
+        var cleanedUrl = removeParams(request.src);
+        if (!UrlInList(cleanedUrl, ITEMS[sender.tab.id]['allowed'])) {
+          var extractedDomain = extractDomainFromURL(request.src);
+          if (extractedDomain.substr(0, 4) == 'www.')
+            extractedDomain = extractedDomain.substr(4);
+          var allowedDomainCheck = domainCheck(request.src, 1);
+          var allowedBaddieCheck = baddies(
             request.src,
             localStorage['annoyancesmode'],
             localStorage['antisocial'],
             2,
           );
-          ITEMS[sender.tab.id]['blocked'].push([
+          ITEMS[sender.tab.id]['allowed'].push([
             cleanedUrl,
             request.node,
             extractedDomain,
-            blockedDomainCheck,
-            blockedTabDomainCheck,
-            blockedDomainBaddieCheck,
-            false,
+            domainCheck(request.src, 1),
+            allowedBaddieCheck,
           ]);
-          recentlog['blocked'].push([
+          recentlog['allowed'].push([
             new Date().getTime(),
             request.src,
             request.node,
             extractedDomain,
-            ITEMS[sender.tab.id]['url'],
-            blockedDomainCheck,
-            blockedTabDomainCheck,
-            blockedDomainBaddieCheck,
-            false,
+            request.src,
+            domainCheck(request.src, 1),
+            allowedBaddieCheck,
           ]);
-          updateRecents('blocked');
+          updateRecents('allowed');
         }
-        updateCount(sender.tab.id);
       }
+    } else if (request.reqtype == 'save') {
+      domainHandler(request.url, request.list);
+      changed = true;
+    } else if (request.reqtype == 'temp') {
+      tempHandler(request);
+    } else if (request.reqtype == 'remove-temp') {
+      removeTempHandler(request);
+    } else if (request.reqtype == 'save-fp') {
+      fpDomainHandler(request.url, request.list, 1);
+      changed = true;
+    } else if (request.reqtype == 'temp-fp') {
+      fpDomainHandler(request.url, request.list, 1, 1);
+      changed = true;
+    } else if (request.reqtype == 'remove-temp-fp') {
+      fpDomainHandler(request.url, request.list, -1, 1);
+      changed = true;
+    } else if (request.reqtype == 'refresh-page-icon') {
+      if (request.type == 0)
+        chrome.browserAction.setIcon({
+          path: '../img/IconAllowed.png',
+          tabId: request.tid,
+        });
+      else if (request.type == 1)
+        chrome.browserAction.setIcon({
+          path: '../img/IconForbidden.png',
+          tabId: request.tid,
+        });
+      else if (request.type == 2)
+        chrome.browserAction.setIcon({
+          path: '../img/IconTemp.png',
+          tabId: request.tid,
+        });
+    } else {
+      const send = /** @type {(response: {}) => void} */ (sendResponse);
+
+      send({});
     }
-  } else if (request.reqtype == 'update-allowed') {
-    if (request.src) {
-      if (typeof ITEMS[sender.tab.id]['allowed'] === 'undefined')
-        ITEMS[sender.tab.id]['allowed'] = [];
-      var cleanedUrl = removeParams(request.src);
-      if (!UrlInList(cleanedUrl, ITEMS[sender.tab.id]['allowed'])) {
-        var extractedDomain = extractDomainFromURL(request.src);
-        if (extractedDomain.substr(0, 4) == 'www.')
-          extractedDomain = extractedDomain.substr(4);
-        var allowedDomainCheck = domainCheck(request.src, 1);
-        var allowedBaddieCheck = baddies(
-          request.src,
-          localStorage['annoyancesmode'],
-          localStorage['antisocial'],
-          2,
-        );
-        ITEMS[sender.tab.id]['allowed'].push([
-          cleanedUrl,
-          request.node,
-          extractedDomain,
-          domainCheck(request.src, 1),
-          allowedBaddieCheck,
-        ]);
-        recentlog['allowed'].push([
-          new Date().getTime(),
-          request.src,
-          request.node,
-          extractedDomain,
-          request.src,
-          domainCheck(request.src, 1),
-          allowedBaddieCheck,
-        ]);
-        updateRecents('allowed');
-      }
-    }
-  } else if (request.reqtype == 'save') {
-    domainHandler(request.url, request.list);
-    changed = true;
-  } else if (request.reqtype == 'temp') {
-    tempHandler(request);
-  } else if (request.reqtype == 'remove-temp') {
-    removeTempHandler(request);
-  } else if (request.reqtype == 'save-fp') {
-    fpDomainHandler(request.url, request.list, 1);
-    changed = true;
-  } else if (request.reqtype == 'temp-fp') {
-    fpDomainHandler(request.url, request.list, 1, 1);
-    changed = true;
-  } else if (request.reqtype == 'remove-temp-fp') {
-    fpDomainHandler(request.url, request.list, -1, 1);
-    changed = true;
-  } else if (request.reqtype == 'refresh-page-icon') {
-    if (request.type == '0')
-      chrome.browserAction.setIcon({
-        path: '../img/IconAllowed.png',
-        tabId: request.tid,
-      });
-    else if (request.type == '1')
-      chrome.browserAction.setIcon({
-        path: '../img/IconForbidden.png',
-        tabId: request.tid,
-      });
-    else if (request.type == '2')
-      chrome.browserAction.setIcon({
-        path: '../img/IconTemp.png',
-        tabId: request.tid,
-      });
-  } else sendResponse({});
-});
+  },
+);
 
 chrome.runtime.onUpdateAvailable.addListener(function (details) {
   // do nothing, wait for user to reload browser before updating.
@@ -1993,9 +2190,9 @@ function contextHandle(mode) {
       } else if (mode == 'block') {
         domainHandler(tabdomain, 2, 1);
         domainHandler(tabdomain, 1);
-      } else if (mode == 'allowtemp' && domainCheckStatus == '-1')
+      } else if (mode == 'allowtemp' && domainCheckStatus == -1)
         tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'block' });
-      else if (mode == 'blocktemp' && domainCheckStatus == '-1')
+      else if (mode == 'blocktemp' && domainCheckStatus == -1)
         tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'allow' });
       else if (mode == 'trust') topHandler(tabdomain, 0);
       else if (mode == 'distrust') topHandler(tabdomain, 1);
@@ -2014,17 +2211,19 @@ function contextHandle(mode) {
 
 function tempPage() {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    var tempMode = localStorage['mode'];
-    if (typeof ITEMS[tabs[0].id][tempMode + 'ed'] === 'undefined') return;
+    /** @type {Mode} */ var tempMode = localStorage['mode'];
+    const tempKey = /** @type {'allowed' | 'blocked'} */ (tempMode + 'ed');
+
+    if (typeof ITEMS[tabs[0].id][tempKey] === 'undefined') return;
     var tempDomainList = [];
-    if (domainCheck(tabs[0].url, 2) == '-1') {
+    if (domainCheck(tabs[0].url, 2) == -1) {
       if (
         (tempMode == 'block' && enabled(tabs[0].url) == 'true') ||
         (tempMode == 'allow' && enabled(tabs[0].url) == 'false')
       )
         tempDomainList.push(extractDomainFromURL(tabs[0].url));
     }
-    ITEMS[tabs[0].id][tempMode + 'ed'].map(function (items) {
+    ITEMS[tabs[0].id][tempKey].map(function (items) {
       if (items[3] == '-1') tempDomainList.push(items[2]);
     });
     tempHandler({ reqtype: 'temp', url: tempDomainList, mode: tempMode });
@@ -2039,7 +2238,7 @@ function removeTempPage() {
     else tempMode = 'block';
     if (typeof ITEMS[tabs[0].id][tempMode + 'ed'] === 'undefined') return;
     var tempDomainList = [];
-    if (domainCheck(tabs[0].url, 2) == '-1') {
+    if (domainCheck(tabs[0].url, 2) == -1) {
       if (
         (tempMode == 'block' && enabled(tabs[0].url) == 'true') ||
         (tempMode == 'allow' && enabled(tabs[0].url) == 'false')
@@ -2061,15 +2260,52 @@ function removeTempAll() {
   });
 }
 
-function ssCompress(str) {
-  return btoa(pako.deflate(str, { to: 'string' }));
+/**
+ * https://developer.mozilla.org/en-US/docs/Web/API/Window/btoa#converting_arbitrary_binary_data
+ *
+ * @param {pako.Uint8ArrayReturnType} bytes
+ * @param {string} type
+ * @returns {Promise<string>}
+ */
+async function bytesToBase64DataUrl(bytes, type = 'application/octet-stream') {
+  return await new Promise((resolve, reject) => {
+    const reader = Object.assign(new FileReader(), {
+      onload: () => resolve(/** @type {string} */ (reader.result)),
+      onerror: () => reject(reader.error),
+    });
+    reader.readAsDataURL(new File([bytes], '', { type }));
+  });
 }
 
-function ssDecompress(str) {
-  return pako.inflate(atob(str), { to: 'string' });
+/**
+ * https://developer.mozilla.org/en-US/docs/Web/API/Window/btoa#converting_arbitrary_binary_data
+ *
+ * @param {string} dataUrl
+ * @returns {Promise<pako.Uint8ArrayReturnType>}
+ */
+async function dataUrlToBytes(dataUrl) {
+  const res = await fetch(dataUrl);
+  return new Uint8Array(await res.arrayBuffer());
 }
 
-function freshSync(force) {
+/**
+ * @param {string} str
+ */
+async function ssCompress(str) {
+  return await bytesToBase64DataUrl(pako.deflate(str));
+}
+
+/**
+ * @param {string} str
+ */
+async function ssDecompress(str) {
+  return pako.inflate(await dataUrlToBytes(str), { to: 'string' });
+}
+
+/**
+ * @param {boolean} [force]
+ */
+async function freshSync(force) {
   if (storageapi && localStorage['syncenable'] == 'true') {
     window.clearTimeout(synctimer);
     if (force) {
@@ -2222,7 +2458,9 @@ function freshSync(force) {
 				settingssync['fpCount'] = i;
 			*/
       // new syncing method - end
-      jsonstr = ssCompress(JSON.parse(localStorage['useragent']).toString());
+      jsonstr = await ssCompress(
+        JSON.parse(localStorage['useragent']).toString(),
+      );
       if (zarr['su'].length) {
         for (var x = 0, forcount = zarr['su'].length; x < forcount; x++)
           delete localStorage[zarr['su'][x]];
@@ -2267,8 +2505,8 @@ function freshSync(force) {
         });
       }
     } else {
-      synctimer = window.setTimeout(function () {
-        syncQueue();
+      synctimer = window.setTimeout(async function () {
+        await syncQueue();
       }, 10000);
     }
     return true;
@@ -2277,29 +2515,32 @@ function freshSync(force) {
   }
 }
 
-function syncQueue() {
-  freshSync(true);
+async function syncQueue() {
+  await freshSync(true);
 }
 
+/**
+ * @param {NumericBool} mode
+ */
 function importSyncHandle(mode) {
   if (storageapi) {
     if (
-      mode == '1' ||
+      mode == 1 ||
       localStorage['syncenable'] == 'true' ||
       localStorage['sync'] == 'false'
     ) {
       window.clearTimeout(synctimer);
-      chrome.storage.sync.get(null, function (changes) {
+      chrome.storage.sync.get(null, async function (changes) {
         if (typeof changes['lastSync'] !== 'undefined') {
           if (
-            (mode == '0' && changes['lastSync'] > localStorage['lastSync']) ||
-            (mode == '1' && changes['lastSync'] >= localStorage['lastSync'])
+            (mode == 0 && changes['lastSync'] > localStorage['lastSync']) ||
+            (mode == 1 && changes['lastSync'] >= localStorage['lastSync'])
           ) {
             if (confirm(getLocale('syncdetect'))) {
               localStorage['syncenable'] = 'true';
               localStorage['sync'] = 'true';
-              importSync(changes);
-              if (mode == '1')
+              await importSync(changes);
+              if (mode == 1)
                 window.setTimeout(function () {
                   window.clearTimeout(synctimer);
                 }, 5000);
@@ -2319,7 +2560,7 @@ function importSyncHandle(mode) {
                 );
               return true;
             } else {
-              if (mode != '1') {
+              if (mode != 1) {
                 localStorage['syncenable'] = 'false';
                 alert(getLocale('syncdisabled'));
                 localStorage['sync'] = 'true';
@@ -2328,7 +2569,7 @@ function importSyncHandle(mode) {
             }
           }
         }
-        if (mode == '1' || (localStorage['sync'] == 'false' && mode == '0')) {
+        if (mode == 1 || (localStorage['sync'] == 'false' && mode == 0)) {
           localStorage['syncenable'] = 'false';
           localStorage['sync'] = 'true';
           return false;
@@ -2342,7 +2583,10 @@ function importSyncHandle(mode) {
   }
 }
 
-function importSync(changes) {
+/**
+ * @param {*} changes
+ */
+async function importSync(changes) {
   for (var key in changes) {
     if (key != 'scriptsafe_settings') {
       localStorage[key] = changes[key];
@@ -2360,14 +2604,17 @@ function importSync(changes) {
       }
     }
   }
+
   initLang(localStorage['locale'], 0);
-  listsSync();
+
+  await listsSync();
 }
 
-function listsSync() {
-  listsSyncParse('whiteList');
-  listsSyncParse('blackList');
-  listsSyncParse('useragent');
+async function listsSync() {
+  await listsSyncParse('whiteList');
+  await listsSyncParse('blackList');
+  await listsSyncParse('useragent');
+
   if (optionExists('fpCount')) {
     var concatlist = '';
     var listerror = false;
@@ -2381,7 +2628,7 @@ function listsSync() {
     }
     if (!listerror) {
       if (concatlist != '') {
-        concatlist = ssDecompress(concatlist);
+        concatlist = await ssDecompress(concatlist);
         var settings = concatlist.split('~');
         if (settings.length > 0) {
           $.each(settings, function (i, v) {
@@ -2406,16 +2653,26 @@ function listsSync() {
   cacheFpLists();
 }
 
-function listsSyncParse(type) {
-  if (optionExists(type + 'Count') || optionExists(type + 'Count2')) {
+/**
+ * @param {ListType} type
+ */
+async function listsSyncParse(type) {
+  if (
+    optionExists(/** @type {ListTypeCount} */ (type + 'Count')) ||
+    optionExists(/** @type {ListTypeCount} */ (type + 'Count2'))
+  ) {
     var lsName = type.substr(0, 1);
     var concatlist = '';
     var concatlistarr = [];
     var counttype;
     var listerror = false;
-    if (optionExists(type + 'Count2')) counttype = type + 'Count2';
+
+    if (optionExists(/** @type {ListTypeCount} */ (type + 'Count2')))
+      counttype = type + 'Count2';
     else counttype = type + 'Count';
+
     concatlist = '';
+
     if (localStorage[counttype] != '0') {
       for (var i = 0, forcount = localStorage[counttype]; i < forcount; i++) {
         if (counttype == type + 'Count2') {
@@ -2441,11 +2698,14 @@ function listsSyncParse(type) {
           }
         }
       }
+
       if (!listerror) {
-        if (counttype == type + 'Count2') concatlist = ssDecompress(concatlist);
+        if (counttype == type + 'Count2')
+          concatlist = await ssDecompress(concatlist);
         concatlistarr = concatlist.split(',');
       }
     }
+
     if (!listerror) {
       if (concatlist == '' || concatlistarr.length == 0)
         localStorage[type + ''] = JSON.stringify([]);
@@ -2460,8 +2720,12 @@ function listsSyncParse(type) {
       );
       localStorage['syncenable'] = 'false';
     }
-    if (optionExists(type + 'Count2')) delete localStorage[type + 'Count2'];
-    if (optionExists(type + 'Count')) delete localStorage[type + 'Count'];
+
+    if (optionExists(/** @type {ListTypeCount} */ (type + 'Count2')))
+      delete localStorage[type + 'Count2'];
+
+    if (optionExists(/** @type {ListTypeCount} */ (type + 'Count')))
+      delete localStorage[type + 'Count'];
   }
 }
 
@@ -2473,9 +2737,9 @@ function setUpdated() {
   updated = false;
 }
 
-function triggerUpdated() {
+async function triggerUpdated() {
   updated = true;
-  freshSync();
+  await freshSync();
 }
 
 function init() {
@@ -2523,6 +2787,10 @@ function cacheFpLists() {
   }
 }
 
+/**
+ * @param {string} lang
+ * @param {NumericBool} mode
+ */
 function initLang(lang, mode) {
   var url = chrome.extension.getURL('_locales/' + lang + '/messages.json');
   $.ajax({
@@ -2531,17 +2799,20 @@ function initLang(lang, mode) {
     async: true,
     success: function (data) {
       locale = data;
-      if (mode == '1') postLangLoad();
+      if (mode == 1) postLangLoad();
       else reinitContext();
     },
     error: function () {
       locale = false;
-      if (mode == '1') postLangLoad();
+      if (mode == 1) postLangLoad();
       else reinitContext();
     },
   });
 }
 
+/**
+ * @param {string} str
+ */
 function getLocale(str) {
   if (locale) {
     if (typeof locale[str] === 'undefined') return chrome.i18n.getMessage(str);
@@ -2647,8 +2918,8 @@ function postLangLoad() {
             changes['lastSync'].newValue &&
             changes['lastSync'].newValue > localStorage['lastSync']
           ) {
-            chrome.storage.sync.get(null, function (changes) {
-              importSync(changes);
+            chrome.storage.sync.get(null, async function (changes) {
+              await importSync(changes);
               if (localStorage['syncfromnotify'] == 'true')
                 chrome.notifications.create(
                   'syncnotify',

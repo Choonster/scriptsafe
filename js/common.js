@@ -2,8 +2,17 @@
 // Distributed under the terms of the GNU General Public License
 // The GNU General Public License can be found in the gpl.txt file. Alternatively, see <http://www.gnu.org/licenses/>.
 
+///@ts-check
+
 'use strict';
 
+/**
+ * @param {string} src
+ * @param {AnnoyancesMode} amode
+ * @param {StringBool} antisocial
+ * @param {1 | 2} [lookupmode]
+ * @returns {BaddiesResult}
+ */
 function baddies(src, amode, antisocial, lookupmode) {
   lookupmode = lookupmode || 1;
   var dmn = extractDomainFromURL(src);
@@ -27,17 +36,21 @@ function baddies(src, amode, antisocial, lookupmode) {
       src.indexOf('plus.google.com/js/client:plusone.js') != -1 ||
       src.indexOf('linkedin.com/countserv/count/share') != -1)
   )
-    return '2';
+    return 2;
   if (
-    (amode == 'relaxed' && domainCheck(dmn, lookupmode) != '0') ||
+    (amode == 'relaxed' && domainCheck(dmn, lookupmode) != 0) ||
     amode == 'strict'
   ) {
-    if (binarySearch(yoyo1, topDomain) != -1) return '1';
-    if (binarySearch(yoyo2, dmn) != -1) return '1';
+    if (binarySearch(yoyo1, topDomain) != -1) return 1;
+    if (binarySearch(yoyo2, dmn) != -1) return 1;
   }
   return false;
 }
 
+/**
+ * @param {string} url
+ * @param {string} taburl
+ */
 function thirdParty(url, taburl) {
   if (url) {
     var url = extractDomainFromURL(url);
@@ -85,6 +98,9 @@ function thirdParty(url, taburl) {
   return false; // doesn't have a URL
 }
 
+/**
+ * @param {string} url
+ */
 function extractDomainFromURL(url) {
   // credit: NotScripts
   if (!url) return '';
@@ -99,6 +115,10 @@ function extractDomainFromURL(url) {
   return url;
 }
 
+/**
+ * @param {string} url
+ * @param {never} [type] // TODO: Unused?
+ */
 function getDomain(url, type) {
   if (
     url &&
@@ -109,26 +129,36 @@ function getDomain(url, type) {
     url.indexOf('.') != -1
   ) {
     if (url[0] == '*' && url[1] == '*' && url[2] == '.') return url.substr(3);
-    url = url.split('.').reverse();
+
+    const parts = url.split('.').reverse();
     var domain;
-    var len = url.length;
+    var len = parts.length;
+
     if (len > 1) {
-      if (type === undefined) domain = url[1] + '.' + url[0];
-      else domain = url[1];
+      if (type === undefined) domain = parts[1] + '.' + parts[0];
+      else domain = parts[1];
+
       if (
-        (url[1] == 'co' || url[1] == 'com' || url[1] == 'net') &&
-        url[0] != 'com' &&
+        (parts[1] == 'co' || parts[1] == 'com' || parts[1] == 'net') &&
+        parts[0] != 'com' &&
         len > 2
       ) {
-        if (type === undefined) domain = url[2] + '.' + url[1] + '.' + url[0];
-        else domain = url[2];
+        if (type === undefined)
+          domain = parts[2] + '.' + parts[1] + '.' + parts[0];
+        else domain = parts[2];
       }
     }
+
     return domain;
   }
+
   return url;
 }
 
+/**
+ * @param {string} needle
+ * @param {string[]} haystack
+ */
 function in_array(needle, haystack) {
   if (!haystack || !needle) return false;
   if (needle.indexOf('www.') == 0) needle = needle.substring(4);
@@ -154,7 +184,12 @@ function in_array(needle, haystack) {
   return false;
 }
 
-// https://github.com/Olical/binary-search/blob/master/src/binarySearch.js
+/**
+ * https://github.com/Olical/binary-search/blob/master/src/binarySearch.js
+ *
+ * @param {string[]} list
+ * @param {string} item
+ */
 function binarySearch(list, item) {
   var min = 0;
   var max = list.length - 1;

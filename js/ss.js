@@ -4,6 +4,7 @@
 
 var savedBeforeloadEvents = new Array();
 var timer;
+/** @type {NumericBool} */
 var iframe = 0;
 var clipboard = false;
 var timestamp = Math.round(new Date().getTime() / 1000.0);
@@ -1214,8 +1215,13 @@ function postLoadCheck(elSrc) {
   return false;
 }
 
+/**
+ * @param {string} domain
+ * @param {1|2} req
+ * @returns {DomainCheckResult}
+ */
 function domainCheck(domain, req) {
-  if (!domain) return '-1';
+  if (!domain) return -1;
   if (req === undefined) {
     var baddiesCheck = baddies(
       domain,
@@ -1228,32 +1234,32 @@ function domainCheck(domain, req) {
         baddiesCheck == '1') ||
       (SETTINGS['ANTISOCIAL'] == 'true' && baddiesCheck == '2')
     )
-      return '1';
+      return 1;
   }
   var domainname = extractDomainFromURL(domain);
-  if (req != '2') {
+  if (req != 2) {
     if (
       SETTINGS['MODE'] == 'block' &&
       in_array(domainname, SETTINGS['WHITELISTSESSION'])
     )
-      return '0';
+      return 0;
     if (
       SETTINGS['MODE'] == 'allow' &&
       in_array(domainname, SETTINGS['BLACKLISTSESSION'])
     )
-      return '1';
+      return 1;
   }
-  if (in_array(domainname, SETTINGS['WHITELIST'])) return '0';
-  if (in_array(domainname, SETTINGS['BLACKLIST'])) return '1';
+  if (in_array(domainname, SETTINGS['WHITELIST'])) return 0;
+  if (in_array(domainname, SETTINGS['BLACKLIST'])) return 1;
   if (req === undefined) {
     if (
       SETTINGS['ANNOYANCES'] == 'true' &&
       SETTINGS['ANNOYANCESMODE'] == 'relaxed' &&
       baddiesCheck
     )
-      return '1';
+      return 1;
   }
-  return '-1';
+  return -1;
 }
 
 function relativeToAbsoluteUrl(url) {
@@ -1276,6 +1282,10 @@ function removeMedia($el) {
   $el.remove().length = 0;
 }
 
+/**
+ * @param {HTMLElement} el
+ * @returns {string}
+ */
 function getElSrc(el) {
   var reStartWProtocol = /^[^\.\/:]+:\/\//i; // credit: NotScripts
   switch (el.nodeName.toUpperCase()) {

@@ -334,9 +334,9 @@ function viewToggle(commit) {
   }
 }
 
-function forceSyncExport() {
+async function forceSyncExport() {
   if (confirm(bkg.getLocale('forcesyncexport'))) {
-    if (bkg.freshSync(true) == 'true') {
+    if ((await bkg.freshSync(true)) == 'true') {
       notification(bkg.getLocale('exportsuccess'));
     }
   }
@@ -348,12 +348,12 @@ function forceSyncImport() {
   }
 }
 
-function importbulkwhite() {
-  importbulk(0);
+async function importbulkwhite() {
+  await importbulk(0);
 }
 
-function importbulkblack() {
-  importbulk(1);
+async function importbulkblack() {
+  await importbulk(1);
 }
 
 function settingsall() {
@@ -368,12 +368,12 @@ function importblack() {
   bulk(1);
 }
 
-function whiteclear() {
-  listclear(0);
+async function whiteclear() {
+  await listclear(0);
 }
 
-function blackclear() {
-  listclear(1);
+async function blackclear() {
+  await listclear(1);
 }
 
 function closeOptions() {
@@ -381,16 +381,16 @@ function closeOptions() {
   window.close();
 }
 
-function whitelistlisten() {
-  addList(0);
+async function whitelistlisten() {
+  await addList(0);
 }
 
-function blacklistlisten() {
-  addList(1);
+async function blacklistlisten() {
+  await addList(1);
 }
 
-function domainsort() {
-  saveOptions();
+async function domainsort() {
+  await saveOptions();
   listUpdate();
   fpListUpdate();
 }
@@ -536,7 +536,7 @@ function loadOptions() {
   fpListUpdate();
 }
 
-function saveOptions() {
+async function saveOptions() {
   saveCheckbox('enable');
   saveCheckbox('syncenable');
   if (!$('#syncenable').prop('checked')) $('#syncbuttons').hide();
@@ -647,7 +647,7 @@ function saveOptions() {
   bkg.refreshRequestTypes();
   bkg.initWebRTC();
   bkg.reinitContext();
-  syncstatus = bkg.freshSync();
+  syncstatus = await bkg.freshSync();
   if (syncstatus) {
     notification(bkg.getLocale('settingssavesync'));
   } else {
@@ -659,9 +659,9 @@ function saveLang() {
   saveElement('locale');
   updateExport();
   bkg.initLang(localStorage['locale'], 0);
-  setTimeout(function () {
+  setTimeout(async function () {
     i18load();
-    syncstatus = bkg.freshSync();
+    syncstatus = await bkg.freshSync();
     if (syncstatus) {
       notification(bkg.getLocale('settingssavesync'));
     } else {
@@ -729,10 +729,10 @@ function settingsImport() {
   bkg.cacheLists();
   bkg.cacheFpLists();
   bkg.initLang(localStorage['locale'], 0);
-  setTimeout(function () {
+  setTimeout(async function () {
     i18load();
     $('#locale').val(localStorage['locale']);
-    syncstatus = bkg.freshSync();
+    syncstatus = await bkg.freshSync();
     if (!error) {
       if (syncstatus) notification(bkg.getLocale('importsuccesssync'));
       else notification(bkg.getLocale('importsuccessoptions'));
@@ -807,7 +807,7 @@ function notification(msg) {
   $('#message').html(msg).stop().fadeIn('slow').delay(2000).fadeOut('slow');
 }
 
-function addList(type) {
+async function addList(type) {
   var domain = $('#url')
     .val()
     .toLowerCase()
@@ -844,7 +844,7 @@ function addList(type) {
       var responseflag = bkg.domainHandler(domain, type);
       if (responseflag) {
         $('#url').val('');
-        syncstatus = bkg.freshSync();
+        syncstatus = await bkg.freshSync();
         if (syncstatus) {
           notification(
             [bkg.getLocale('whitelisted'), bkg.getLocale('blacklisted')][type] +
@@ -874,7 +874,7 @@ function addList(type) {
   return false;
 }
 
-function addFPList() {
+async function addFPList() {
   var elid = $(this)
     .attr('id')
     .substr(0, $(this).attr('id').indexOf('whitebind'));
@@ -895,7 +895,7 @@ function addFPList() {
     var responseflag = bkg.fpDomainHandler(domain, elid, 1);
     if (responseflag) {
       $('#' + elid + 'url').val('');
-      syncstatus = bkg.freshSync();
+      syncstatus = await bkg.freshSync();
       if (syncstatus) {
         notification(
           bkg.getLocale('whitelisted') +
@@ -919,7 +919,7 @@ function addFPList() {
   return false;
 }
 
-function domainRemover(domain, type) {
+async function domainRemover(domain, type) {
   if (
     confirm('Are you sure you want to remove ' + domain + ' from this list?')
   ) {
@@ -931,7 +931,7 @@ function domainRemover(domain, type) {
       bkg.fpDomainHandler(domain, type, -1);
       fpListUpdate();
     }
-    syncstatus = bkg.freshSync();
+    syncstatus = await bkg.freshSync();
     if (syncstatus) {
       notification(
         'Successfully removed: ' + domain + ' and syncing in 10 seconds.',
@@ -943,7 +943,7 @@ function domainRemover(domain, type) {
   return false;
 }
 
-function domainMove(domain, mode) {
+async function domainMove(domain, mode) {
   var lingo;
   if (mode == '0') lingo = bkg.getLocale('whitelistlow');
   else if (mode == '1') lingo = bkg.getLocale('blacklistlow');
@@ -954,7 +954,7 @@ function domainMove(domain, mode) {
   ) {
     bkg.domainHandler(domain, mode);
     listUpdate();
-    syncstatus = bkg.freshSync();
+    syncstatus = await bkg.freshSync();
     if (syncstatus) {
       notification(
         [bkg.getLocale('whitelisted'), bkg.getLocale('blacklisted')][mode] +
@@ -973,7 +973,7 @@ function domainMove(domain, mode) {
   return false;
 }
 
-function topDomainAdd(domain, mode) {
+async function topDomainAdd(domain, mode) {
   var lingo;
   var fpmode = false;
   if (mode == '0') lingo = bkg.getLocale('trustlow');
@@ -1008,7 +1008,7 @@ function topDomainAdd(domain, mode) {
     bkg.topHandler(domain, mode);
     if (!fpmode) listUpdate();
     else fpListUpdate();
-    bkg.freshSync();
+    await bkg.freshSync();
     notification('Successfully ' + lingo + 'ed: ' + domain);
   }
 }
@@ -1052,7 +1052,7 @@ function bulk(type) {
   }
 }
 
-function importbulk(type) {
+async function importbulk(type) {
   var error = '';
   var domains = $('#bulk textarea').val().split('\n');
   if ($.trim($('#bulk textarea').val()) == '') {
@@ -1110,7 +1110,7 @@ function importbulk(type) {
   }
   listUpdate();
   if (!error) {
-    syncstatus = bkg.freshSync();
+    syncstatus = await bkg.freshSync();
     if (syncstatus) {
       notification('Domains imported successfully and syncing in 10 seconds');
     } else {
@@ -1120,7 +1120,7 @@ function importbulk(type) {
     $('#bulk textarea').val('');
     $('#importerror').hide();
   } else {
-    bkg.freshSync();
+    await bkg.freshSync();
     notification('Error importing some domains');
     $('#importerror')
       .html(
@@ -1233,14 +1233,14 @@ function listUpdate() {
   $('#whitelistcount').html(whitelistLength);
   $('#blacklistcount').html(blacklistLength);
   $('.domainRemover, .topDomainAdd, .domainMove').unbind('click');
-  $('.domainRemover').click(function () {
-    domainRemover($(this).attr('rel'));
+  $('.domainRemover').click(async function () {
+    await domainRemover($(this).attr('rel'));
   });
   $('.topDomainAdd').click(function () {
     topDomainAdd($(this).attr('data-domain'), $(this).attr('data-mode'));
   });
-  $('.domainMove').click(function () {
-    domainMove($(this).attr('data-domain'), $(this).attr('data-mode'));
+  $('.domainMove').click(async function () {
+    await domainMove($(this).attr('data-domain'), $(this).attr('data-mode'));
   });
   updateExport();
 }
@@ -1264,8 +1264,8 @@ function fpListUpdate() {
     fpListProcess(fpTypes[i]);
   }
   $('.fpDomainRemover, .fpTopDomainAdd').unbind('click');
-  $('.fpDomainRemover').click(function () {
-    domainRemover(
+  $('.fpDomainRemover').click(async function () {
+    await domainRemover(
       $(this).attr('rel'),
       $(this).parent().parent().parent().attr('id'),
     );
@@ -1314,12 +1314,12 @@ function fpListProcess(fpType) {
   $('#' + fpType + 'count').html(fpListLength);
 }
 
-function listclear(type) {
+async function listclear(type) {
   if (confirm(['Clear whitelist?', 'Clear blacklist?'][type])) {
     localStorage[['whiteList', 'blackList'][type]] = JSON.stringify([]);
     listUpdate();
     bkg.cacheLists();
-    if (bkg.freshSync(2)) {
+    if (await bkg.freshSync(true)) {
       notification(bkg.getLocale('settingssavesync'));
     } else {
       notification(bkg.getLocale('settingssave'));

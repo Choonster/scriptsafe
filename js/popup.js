@@ -5,7 +5,13 @@
 var version = '1.0.9.3';
 var port = chrome.runtime.connect({ name: 'popuplifeline' });
 var bkg = chrome.extension.getBackgroundPage();
-var closepage, mode, taburl, tabid, tabdomain;
+
+var /** @type {StringBool} */ closepage,
+  /** @type {Mode} */ mode,
+  /** @type {string} */ taburl,
+  /** @type {number} */ tabid,
+  /** @type {string} */ tabdomain;
+
 var selected = false;
 var intemp = false;
 var blocked = [];
@@ -39,22 +45,22 @@ var bulkhandle = function () {
   bulk($(this));
 };
 
-var removehandle = function () {
-  remove(tabdomain, $(this), '0');
+var removehandle = async function () {
+  await remove(tabdomain, $(this), '0');
 };
 
-var x_removehandle = function () {
-  remove($(this).parent().attr('rel'), $(this), '1');
+var x_removehandle = async function () {
+  await remove($(this).parent().attr('rel'), $(this), '1');
 };
 
-var savehandle = function () {
+var savehandle = async function () {
   port.postMessage({ url: taburl, tid: tabid });
-  save(tabdomain, $(this), '0');
+  await save(tabdomain, $(this), '0');
 };
 
-var x_savehandle = function () {
+var x_savehandle = async function () {
   port.postMessage({ url: taburl, tid: tabid });
-  save($(this).parent().attr('rel'), $(this), '1');
+  await save($(this).parent().attr('rel'), $(this), '1');
 };
 
 function openTab(url) {
@@ -104,8 +110,8 @@ document.addEventListener('DOMContentLoaded', function () {
 function init() {
   $('#version').html(version);
   $('#pop_options').html(bkg.getLocale('options'));
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tab) {
-    tab = tab[0];
+  chrome.tabs.query({ active: true, currentWindow: true }, function (_tab) {
+    const tab = _tab[0];
     taburl = tab.url;
     tabdomain = bkg.extractDomainFromURL(taburl);
     if (tabdomain.substr(0, 4) == 'www.') tabdomain = tabdomain.substr(4);
@@ -1501,7 +1507,7 @@ function bulk(el) {
   window.close();
 }
 
-function remove(url, el, type) {
+async function remove(url, el, type) {
   var val = el.attr('rel');
   var selected = el.hasClass('selected');
   if (val != 2 && selected) return;
@@ -1534,7 +1540,7 @@ function remove(url, el, type) {
       bkg.domainHandler(url, 2, 1);
     }
   }
-  bkg.triggerUpdated();
+  await bkg.triggerUpdated();
   chrome.runtime.sendMessage({
     reqtype: 'refresh-page-icon',
     tid: tabid,
@@ -1585,13 +1591,13 @@ function remove(url, el, type) {
   }
 }
 
-function save(url, el, type) {
+async function save(url, el, type) {
   var val = el.attr('rel');
   var selected = el.hasClass('selected');
   if (val != 2 && selected) return;
   if (el.parent().hasClass('fpchoices')) {
     var fpType = el.parent().attr('sn_list');
-    var fpList;
+    /** @type {FingerprintType} */ var fpList;
     if (fpType == 'canvas.fingerprint') fpList = 'fpCanvas';
     else if (fpType == 'canvas.font.access') fpList = 'fpCanvasFont';
     else if (fpType == 'audio.fingerprint') fpList = 'fpAudio';
@@ -1646,7 +1652,7 @@ function save(url, el, type) {
       val = 1;
     }
   }
-  if (val != 2) bkg.triggerUpdated();
+  if (val != 2) await bkg.triggerUpdated();
   if (url == tabdomain)
     chrome.runtime.sendMessage({
       reqtype: 'refresh-page-icon',

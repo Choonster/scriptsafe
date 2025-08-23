@@ -8,6 +8,7 @@
   "author": "andryou, Choonster",
   "license": "GPL-3.0",
   "devDependencies": {
-    "@types/chrome": "^0.1.4"
+    "@types/chrome": "^0.1.4",
+    "prettier": "^3.6.2"
   }
 }

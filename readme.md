@@ -1,4 +1,5 @@
 # ScriptSafe
+
 A browser extension that gives users control of the web and more secure browsing while emphasizing simplicity and intuitiveness.
 
 **Install from the Chrome Web Store: https://chrome.google.com/webstore/detail/scriptsafe/oiigbmnaadbkfbmpbfijlflahbdbdgdf**

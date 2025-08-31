@@ -1,5 +1,8 @@
 declare type WebRequestEventHandler<
-  E extends chrome.webRequest.WebRequestEvent<unknown, unknown>,
+  E extends chrome.webRequest.WebRequestEvent<
+    (...args: unknown[]) => void,
+    string[]
+  >,
 > = Parameters<E['addListener']>[0];
 
 declare type NumericBool = 1 | 0;
@@ -130,7 +133,6 @@ declare type Settings = {
 declare type Setting = keyof Settings;
 
 declare type ItemsEntry = {
-  length: 1;
   allowed?: [
     string,
     WebRequestTypeUpper | BlockedNode,
@@ -150,6 +152,8 @@ declare type ItemsEntry = {
   ][];
 } & [number];
 
+declare type ItemsEntryKey = 'allowed' | 'blocked';
+
 declare type BlockedNode =
   | 'NOSCRIPT'
   | 'APPLET'
@@ -164,6 +168,16 @@ declare type BlockedNode =
   | 'Spoofed Timezone'
   | FingerprintDescription;
 
+/*
+ * - 0 = time
+ * - 1 = request url
+ * - 2 = type
+ * - 3 = extracted request domain
+ * - 4 = full tab url
+ * - 5 = request domain list
+ * - 6 = baddiesCheck
+ * - 7 = fingerprint
+ */
 declare type AllowedRecentLogEntry = [
   number,
   string,
@@ -175,6 +189,17 @@ declare type AllowedRecentLogEntry = [
   boolean?,
 ];
 
+/**
+ * - 0 = time
+ * - 1 = request url
+ * - 2 = type
+ * - 3 = extracted request domain
+ * - 4 = full tab url
+ * - 5 = request domain check
+ * - 6 = tab domain check
+ * - 7 = baddiesCheck
+ * - 8 = fingerprint or not
+ */
 declare type BlockedRecentLogEntry = [
   number,
   string,
@@ -238,6 +263,88 @@ declare type OptionName =
   | 'locale'
   | 'tempregexflag';
 
-declare interface Window {
+declare type Langs = {
+  en_US: string;
+  en_GB: string;
+  zh_CN: string;
+  zh_TW: string;
+  cs: string;
+  nl: string;
+  fr: string;
+  de: string;
+  hu: string;
+  it: string;
+  ja: string;
+  ko: string;
+  lv: string;
+  pl: string;
+  ro: string;
+  ru: string;
+  es: string;
+  sv: string;
+};
+
+declare interface BackgroundWindow extends Window {
   freshSync(force?: boolean): Promise<boolean>;
+  getRecents(list: RecentList): string;
+  clearRecents(): void;
+  getLocale(str: string): string;
+  checkTemp(domain: string): false | 1;
+  fpDomainHandler(
+    domain: string,
+    listtype: FingerprintType,
+    action: HandlerAction,
+    temp?: EnumListType,
+  ): boolean;
+  getDomain(url: string, type?: never): string;
+  trustCheck(domain: string): false | 2 | 1;
+  domainHandler(
+    domain: string,
+    action: HandlerAction,
+    listtype?: EnumListType,
+  ): boolean;
+  topHandler(domain: string, mode: NumericBool): boolean;
+  getLangs(): Langs;
+  getWebRTC(): boolean;
+  refreshRequestTypes(): void;
+  initWebRTC(): void;
+  reinitContext(): void;
+  initLang(lang: string, mode: NumericBool): void;
+  cacheLists(): void;
+  cacheFpLists(): void;
+  domainCheck(domain: string, req?: 1 | 2): DomainCheckResult;
+  baddies(
+    src: string,
+    amode: AnnoyancesMode,
+    antisocial: StringBool,
+    lookupmode?: 1 | 2,
+  ): BaddiesResult;
+  domainSort(hosts: string[]): string[];
+  domainSort(hosts: HostsList): HostsList;
+  getUpdated(): boolean;
+  setUpdated(): void;
+  setDefaultOptions(force?: 1 | 2): void;
+  importSyncHandle(mode: NumericBool): boolean;
 }
+
+declare type ContextMode =
+  | 'allow'
+  | 'block'
+  | 'trust'
+  | 'distrust'
+  | 'allowtemp'
+  | 'blocktemp'
+  | 'clear'
+  | 'toggle';
+
+declare enum EnumListType {
+  Permanent,
+  Temporary,
+}
+
+declare type LocaleEntry = {
+  description: string;
+  message: string;
+};
+
+declare type Locale = Record<string, LocaleEntry>;

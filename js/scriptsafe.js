@@ -30,8 +30,10 @@ var requestTypes,
   sessionBlackList,
   /** @type {string[]} */
   sessionWhiteList,
+  /** @type {Locale | false} */
   locale;
 
+/** @type {Langs} */
 var langs = {
   en_US: 'English (US)',
   en_GB: 'English (UK)',
@@ -873,6 +875,7 @@ function domainCheck(domain, req) {
 
 /**
  * @param {HostsList | string[]} hosts
+ * @returns {HostsList | string[]}
  */
 function domainSort(hosts) {
   if (hosts.length > 0) {
@@ -907,6 +910,8 @@ function domainSort(hosts) {
           split_hosts[h][7],
         ]);
       }
+
+      return sorted_hosts;
     } else {
       /** @type {string[]} */
       const sorted_hosts = new Array();
@@ -922,10 +927,12 @@ function domainSort(hosts) {
       for (var h in split_hosts) {
         sorted_hosts.push(split_hosts[h][1]);
       }
+
+      return sorted_hosts;
     }
-    return sorted_hosts;
   }
-  return hosts;
+
+  return [];
 }
 
 /**
@@ -976,6 +983,7 @@ function haystackSearch(needle, haystack) {
 /**
  * @param {string} domain
  * @param {HandlerAction} action
+ * @param {EnumListType} [listtype]
  */
 function domainHandler(domain, action, listtype) {
   if (listtype === undefined) listtype = 0;
@@ -1119,7 +1127,7 @@ function domainHandler(domain, action, listtype) {
  * @param {string} domain
  * @param {FingerprintType} listtype
  * @param {HandlerAction} action
- * @param {NumericBool} [temp]
+ * @param {EnumListType} [temp]
  */
 function fpDomainHandler(domain, listtype, action, temp) {
   if (temp === undefined) temp = 0;
@@ -2179,6 +2187,9 @@ function genContextMenu() {
     });
 }
 
+/**
+ * @param {ContextMode} mode
+ */
 function contextHandle(mode) {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     if (tabs[0].url.indexOf('http') == 0) {
@@ -2212,9 +2223,11 @@ function contextHandle(mode) {
 function tempPage() {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     /** @type {Mode} */ var tempMode = localStorage['mode'];
-    const tempKey = /** @type {'allowed' | 'blocked'} */ (tempMode + 'ed');
+    const tempKey = /** @type {ItemsEntryKey} */ (tempMode + 'ed');
 
     if (typeof ITEMS[tabs[0].id][tempKey] === 'undefined') return;
+
+    /** @type {string[]} */
     var tempDomainList = [];
     if (domainCheck(tabs[0].url, 2) == -1) {
       if (
@@ -2223,9 +2236,15 @@ function tempPage() {
       )
         tempDomainList.push(extractDomainFromURL(tabs[0].url));
     }
-    ITEMS[tabs[0].id][tempKey].map(function (items) {
-      if (items[3] == '-1') tempDomainList.push(items[2]);
-    });
+
+    ITEMS[tabs[0].id][tempKey].map(
+      function (
+        /** @type { (ItemsEntry['allowed'] | ItemsEntry['blocked'])[0]} */ items,
+      ) {
+        if (items[3] == -1) tempDomainList.push(items[2]);
+      },
+    );
+
     tempHandler({ reqtype: 'temp', url: tempDomainList, mode: tempMode });
     if (localStorage['refresh'] == 'true') chrome.tabs.reload(tabs[0].id);
   });
@@ -2233,10 +2252,16 @@ function tempPage() {
 
 function removeTempPage() {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    /** @type {Mode} */
     var tempMode;
     if (localStorage['mode'] == 'block') tempMode = 'allow';
     else tempMode = 'block';
-    if (typeof ITEMS[tabs[0].id][tempMode + 'ed'] === 'undefined') return;
+
+    const tempKey = /** @type {ItemsEntryKey} */ (tempMode + 'ed');
+
+    if (typeof ITEMS[tabs[0].id][tempKey] === 'undefined') return;
+
+    /** @type {string[]} */
     var tempDomainList = [];
     if (domainCheck(tabs[0].url, 2) == -1) {
       if (
@@ -2245,10 +2270,17 @@ function removeTempPage() {
       )
         tempDomainList.push(extractDomainFromURL(tabs[0].url));
     }
-    ITEMS[tabs[0].id][tempMode + 'ed'].map(function (items) {
-      tempDomainList.push(items[2]);
-    });
+
+    ITEMS[tabs[0].id][tempKey].map(
+      function (
+        /** @type { (ItemsEntry['allowed'] | ItemsEntry['blocked'])[0]} */ items,
+      ) {
+        tempDomainList.push(items[2]);
+      },
+    );
+
     removeTempHandler({ reqtype: 'remove-temp', url: tempDomainList });
+
     if (localStorage['refresh'] == 'true') chrome.tabs.reload(tabs[0].id);
   });
 }
@@ -2812,6 +2844,7 @@ function initLang(lang, mode) {
 
 /**
  * @param {string} str
+ * @returns {string}
  */
 function getLocale(str) {
   if (locale) {

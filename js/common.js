@@ -162,7 +162,7 @@ function getDomain(url, type) {
 function in_array(needle, haystack) {
   if (!haystack || !needle) return false;
   if (needle.indexOf('www.') == 0) needle = needle.substring(4);
-  if (binarySearch(haystack, needle) != -1) return '1';
+  if (binarySearch(haystack, needle) != -1) return 1;
   for (var i in haystack) {
     if (haystack[i].indexOf('*') == -1 && haystack[i].indexOf('?') == -1)
       continue;
@@ -179,7 +179,7 @@ function in_array(needle, haystack) {
           ')$',
       ).test(needle)
     )
-      return '1';
+      return 1;
   }
   return false;
 }

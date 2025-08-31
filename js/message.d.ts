@@ -160,6 +160,7 @@ declare type MessageResponseLookup = {
   'remove-temp': unknown;
 };
 
-declare type SendResponseCallback<T extends MessageRequest> = (
-  response: MessageResponseLookup[T['reqtype']],
-) => void;
+declare type SendResponseCallback<T extends MessageRequest> =
+  T['reqtype'] extends keyof MessageResponseLookup
+    ? (response: MessageResponseLookup[T['reqtype']]) => void
+    : never;

@@ -243,9 +243,6 @@ declare type SplitHostsEntry = [
 
 declare type HostsList = HostsEntry[];
 
-// TODO: string[] may be inaccurate
-declare type HostsOrStringList = HostsList | string[];
-
 declare type HandlerAction = -1 | 0 | 1 | 2;
 
 declare type ListType = 'whiteList' | 'blackList' | 'useragent';
@@ -303,7 +300,7 @@ declare interface BackgroundWindow extends Window {
     action: HandlerAction,
     listtype?: EnumListType,
   ): boolean;
-  topHandler(domain: string, mode: NumericBool): boolean;
+  topHandler(domain: string, mode: NumericBool | FingerprintType): boolean;
   getLangs(): Langs;
   getWebRTC(): boolean;
   refreshRequestTypes(): void;
@@ -325,6 +322,11 @@ declare interface BackgroundWindow extends Window {
   setUpdated(): void;
   setDefaultOptions(force?: 1 | 2): void;
   importSyncHandle(mode: NumericBool): boolean;
+  triggerUpdated(): Promise<void>;
+  extractDomainFromURL(url: string): string;
+  statuschanger(duration: number): void;
+  revokeTemp(): void;
+  in_array(needle: string, haystack: string[]): false | 1;
 }
 
 declare type ContextMode =

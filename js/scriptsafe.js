@@ -946,7 +946,7 @@ function trustCheck(domain) {
 
 /**
  * @param {string} domain
- * @param {NumericBool} mode
+ * @param {NumericBool | FingerprintType} mode
  */
 function topHandler(domain, mode) {
   if (domain) {

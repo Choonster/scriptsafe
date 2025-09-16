@@ -4,7 +4,9 @@
 
 var version = '1.0.9.3';
 var port = chrome.runtime.connect({ name: 'popuplifeline' });
-var bkg = chrome.extension.getBackgroundPage();
+var bkg = /** @type {BackgroundWindow} */ (
+  chrome.extension.getBackgroundPage()
+);
 
 var /** @type {StringBool} */ closepage,
   /** @type {Mode} */ mode,
@@ -25,12 +27,12 @@ var statuschange = function () {
       bkg.getLocale('forever') +
       '</span>',
   );
-  $('span[data-duration]').bind('click', statuschanger);
+  $('span[data-duration]').bind('click', _statuschanger);
 };
 
-var statuschanger = function () {
+var _statuschanger = function () {
   port.postMessage({ url: taburl, tid: tabid });
-  bkg.statuschanger($(this).attr('data-duration'));
+  bkg.statuschanger(parseInt($(this).attr('data-duration')));
   window.close();
 };
 
@@ -46,28 +48,35 @@ var bulkhandle = function () {
 };
 
 var removehandle = async function () {
-  await remove(tabdomain, $(this), '0');
+  await remove(tabdomain, $(this), 0);
 };
 
 var x_removehandle = async function () {
-  await remove($(this).parent().attr('rel'), $(this), '1');
+  await remove($(this).parent().attr('rel'), $(this), 1);
 };
 
 var savehandle = async function () {
   port.postMessage({ url: taburl, tid: tabid });
-  await save(tabdomain, $(this), '0');
+  await save(tabdomain, $(this), 0);
 };
 
 var x_savehandle = async function () {
   port.postMessage({ url: taburl, tid: tabid });
-  await save($(this).parent().attr('rel'), $(this), '1');
+  await save($(this).parent().attr('rel'), $(this), 1);
 };
 
+/**
+ * @param {string} url
+ */
 function openTab(url) {
   chrome.tabs.create({ url: url });
   window.close();
 }
 
+/**
+ * @param {string} str
+ * @param {number} len
+ */
 function truncate(str, len) {
   if (str.length > len) return str.substring(0, len) + '...';
   return str;
@@ -124,8 +133,12 @@ function init() {
       $('.thirds').html('<i>' + bkg.getLocale('noexternal') + '</i>');
     } else {
       chrome.runtime.sendMessage(
-        { reqtype: 'get-list', url: taburl, tid: tabid },
-        function (response) {
+        /** @satisfies {GetListRequest} */ ({
+          reqtype: 'get-list',
+          url: taburl,
+          tid: tabid,
+        }),
+        function (/** @type {GetListResponse} */ response) {
           if (typeof response === 'undefined' || response == 'reload') {
             if (tab.url.substring(0, 4) == 'http') {
               $('table').html(
@@ -170,7 +183,7 @@ function init() {
             (responseBlockedCount == 0 && responseAllowedCount == 0) ||
             response.status == 'false' ||
             (response.mode == 'block' &&
-              (response.enable == '1' || response.enable == '4'))
+              (response.enable == 1 || response.enable == 4))
           ) {
             if (response.status == 'false') {
               $('#currentdomain').hide();
@@ -188,7 +201,7 @@ function init() {
                     bkg.getLocale('enabless') +
                     '</div>',
                 );
-              $('.snstatus').bind('click', statuschanger);
+              $('.snstatus').bind('click', _statuschanger);
               return false;
             }
             $('.thirds').html('<i>' + bkg.getLocale('noexternal') + '</i>');
@@ -245,7 +258,7 @@ function init() {
                 else if (response.blockeditems[i][1] == 'Data URL')
                   itemdomain = 'data.url';
                 if (itemdomain) {
-                  var baddiesstatus = response.blockeditems[i][5];
+                  const baddiesstatus = response.blockeditems[i][5];
                   var parentstatus = response.blockeditems[i][4];
                   var itemdomainfriendly = itemdomain.replace(/[.\[\]:]/g, '_');
                   var fpitemdomainfriendly = fpitemdomain.replace(
@@ -258,15 +271,15 @@ function init() {
                     $('#blocked .thirditem[rel="x_' + itemdomainfriendly + '"]')
                       .length == 0
                   ) {
-                    if (domainCheckStatus == '1') {
+                    if (domainCheckStatus == 1) {
                       var trustval0 = '';
                       var trustval1 = '';
                       var allowedtype;
                       var trustType = bkg.trustCheck(itemdomain);
-                      if (trustType == '1') {
+                      if (trustType == 1) {
                         trustval0 = ' selected';
                         allowedtype = 3;
-                      } else if (trustType == '2') {
+                      } else if (trustType == 2) {
                         trustval1 = ' selected';
                         allowedtype = 4;
                       } else allowedtype = 1;
@@ -522,15 +535,17 @@ function init() {
                               fpitemdomainfriendly +
                               '"]',
                           ).html(
-                            parseInt(
-                              $(
-                                "#blocked .fpcat[rel='x_" +
-                                  itemdomainfriendly +
-                                  "'] .fpitem [rel='fpcount_" +
-                                  fpitemdomainfriendly +
-                                  "']",
-                              ).html(),
-                            ) + 1,
+                            String(
+                              parseInt(
+                                $(
+                                  "#blocked .fpcat[rel='x_" +
+                                    itemdomainfriendly +
+                                    "'] .fpitem [rel='fpcount_" +
+                                    fpitemdomainfriendly +
+                                    "']",
+                                ).html(),
+                              ) + 1,
+                            ),
                           );
                           $(
                             "#blocked .fpcat[rel='x_" +
@@ -539,15 +554,17 @@ function init() {
                               itemdomainfriendly +
                               "']",
                           ).html(
-                            parseInt(
-                              $(
-                                "#blocked .fpcat[rel='x_" +
-                                  itemdomainfriendly +
-                                  "'] [rel='count_" +
-                                  itemdomainfriendly +
-                                  "']",
-                              ).html(),
-                            ) + 1,
+                            String(
+                              parseInt(
+                                $(
+                                  "#blocked .fpcat[rel='x_" +
+                                    itemdomainfriendly +
+                                    "'] [rel='count_" +
+                                    itemdomainfriendly +
+                                    "']",
+                                ).html(),
+                              ) + 1,
+                            ),
                           );
                         }
                         $(
@@ -630,11 +647,13 @@ function init() {
                         ),
                     );
                     $("#blocked [rel='count_" + itemdomainfriendly + "']").html(
-                      parseInt(
-                        $(
-                          "#blocked [rel='count_" + itemdomainfriendly + "']",
-                        ).html(),
-                      ) + 1,
+                      String(
+                        parseInt(
+                          $(
+                            "#blocked [rel='count_" + itemdomainfriendly + "']",
+                          ).html(),
+                        ) + 1,
+                      ),
                     );
                   }
                   if (response.rating == 'true') {
@@ -663,9 +682,9 @@ function init() {
                   if (
                     (response.annoyances == 'true' &&
                       response.annoyancesmode == 'strict' &&
-                      domainCheckStatus == '-1' &&
-                      baddiesstatus == '1') ||
-                    (response.antisocial == 'true' && baddiesstatus == '2')
+                      domainCheckStatus == -1 &&
+                      baddiesstatus == 1) ||
+                    (response.antisocial == 'true' && baddiesstatus == 2)
                   ) {
                     $('#blocked').append(
                       $("#blocked [rel='x_" + itemdomainfriendly + "']"),
@@ -681,7 +700,7 @@ function init() {
                         itemdomainfriendly +
                         "'] .box4",
                     ).hide();
-                    if (response.antisocial == 'true' && baddiesstatus == '2') {
+                    if (response.antisocial == 'true' && baddiesstatus == 2) {
                       $(
                         "#blocked [rel='x_" +
                           itemdomainfriendly +
@@ -701,8 +720,8 @@ function init() {
                         .addClass('selected');
                     }
                   } else if (
-                    (parentstatus == '1' || parentstatus == '-1') &&
-                    domainCheckStatus == '0'
+                    (parentstatus == 1 || parentstatus == -1) &&
+                    domainCheckStatus == 0
                   ) {
                     $(
                       "#blocked [rel='x_" +
@@ -728,8 +747,8 @@ function init() {
                       .addClass('selected');
                   } else if (
                     response.annoyances == 'true' &&
-                    domainCheckStatus == '-1' &&
-                    baddiesstatus == '1'
+                    domainCheckStatus == -1 &&
+                    baddiesstatus == 1
                   ) {
                     $(
                       "#blocked [rel='x_" +
@@ -884,20 +903,20 @@ function init() {
                     /[.\[\]:]/g,
                     '_',
                   );
-                  var baddiesstatus = response.alloweditems[i][4];
+                  const baddiesstatus = response.alloweditems[i][4];
                   if (
                     $('#allowed .thirditem[rel="x_' + itemdomainfriendly + '"]')
                       .length == 0
                   ) {
-                    if (response.alloweditems[i][3] == '0') {
+                    if (response.alloweditems[i][3] == 0) {
                       var trustval0 = '';
                       var trustval1 = '';
                       var allowedtype;
                       var trustType = bkg.trustCheck(itemdomain);
-                      if (trustType == '1') {
+                      if (trustType == 1) {
                         trustval0 = ' selected';
                         allowedtype = 3;
-                      } else if (trustType == '2') {
+                      } else if (trustType == 2) {
                         trustval1 = ' selected';
                         allowedtype = 4;
                       } else allowedtype = 0;
@@ -1120,11 +1139,13 @@ function init() {
                         response.alloweditems[i][0],
                     );
                     $("#allowed [rel='count_" + itemdomainfriendly + "']").html(
-                      parseInt(
-                        $(
-                          "#allowed [rel='count_" + itemdomainfriendly + "']",
-                        ).html(),
-                      ) + 1,
+                      String(
+                        parseInt(
+                          $(
+                            "#allowed [rel='count_" + itemdomainfriendly + "']",
+                          ).html(),
+                        ) + 1,
+                      ),
                     );
                   }
                   if (response.rating == 'true') {
@@ -1150,7 +1171,7 @@ function init() {
                           '"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></a></span>',
                       );
                   }
-                  if (response.annoyances == 'true' && baddiesstatus == '1') {
+                  if (response.annoyances == 'true' && baddiesstatus == 1) {
                     $(
                       "#allowed [rel='x_" +
                         itemdomainfriendly +
@@ -1196,7 +1217,7 @@ function init() {
                     }
                   }
                   if (response.alloweditems[i][5]) {
-                    if (response.alloweditems[i][3] == '2')
+                    if (response.alloweditems[i][3] == 2)
                       $(
                         '#allowed .fpcat[rel="x_' +
                           itemdomainfriendly +
@@ -1206,7 +1227,7 @@ function init() {
                       )
                         .addClass('selected')
                         .show();
-                    else if (response.alloweditems[i][3] == '1') {
+                    else if (response.alloweditems[i][3] == 1) {
                       $(
                         '#allowed .fpcat[rel="x_' +
                           itemdomainfriendly +
@@ -1391,7 +1412,7 @@ function init() {
             )
           )
             $('.ptrust').hide();
-          if (response.enable == '1' || response.enable == '4') {
+          if (response.enable == 1 || response.enable == 4) {
             if (tabInTemp) {
               $(
                 ".pbypass, #blocked [rel='x_" +
@@ -1406,7 +1427,7 @@ function init() {
               $('.pbypass').hide();
               $('.pclear').show();
               $('.pdeny').addClass('selected');
-              if (response.enable == '4')
+              if (response.enable == 4)
                 $(".ptrust[rel='4']").addClass('selected');
             }
             var domainCheckStatus = bkg.domainCheck(taburl, 1);
@@ -1418,11 +1439,11 @@ function init() {
             if (
               (response.annoyances == 'true' &&
                 response.annoyancesmode == 'strict' &&
-                domainCheckStatus == '-1' &&
+                domainCheckStatus == -1 &&
                 baddiesStatus == 1) ||
-              (response.antisocial == 'true' && baddiesStatus == '2')
+              (response.antisocial == 'true' && baddiesStatus == 2)
             ) {
-              if (response.antisocial == 'true' && baddiesStatus == '2') {
+              if (response.antisocial == 'true' && baddiesStatus == 2) {
                 $('.pdeny')
                   .addClass('selected')
                   .attr('title', 'Blocked (antisocial)')
@@ -1438,7 +1459,7 @@ function init() {
               ).hide();
             } else if (
               response.annoyances == 'true' &&
-              domainCheckStatus == '-1' &&
+              domainCheckStatus == -1 &&
               baddiesStatus == 1
             ) {
               $('.pdeny')
@@ -1448,7 +1469,7 @@ function init() {
               $('.pbypass').show();
               $('.pclear').hide();
             }
-          } else if (response.enable == '0' || response.enable == '3') {
+          } else if (response.enable == 0 || response.enable == 3) {
             if (tabInTemp) {
               $(
                 ".pbypass, #allowed [rel='x_" +
@@ -1463,7 +1484,7 @@ function init() {
               $('.pbypass').hide();
               $('.pclear').show();
               $('.pallow').addClass('selected');
-              if (response.enable == '3')
+              if (response.enable == 3)
                 $(".ptrust[rel='3']").addClass('selected');
             }
           }
@@ -1493,28 +1514,50 @@ function init() {
   });
 }
 
+/**
+ * @param {JQuery} el
+ */
 function bulk(el) {
   var urlarray;
   if (el.hasClass('prevoke')) {
     if (mode == 'block') urlarray = allowed;
     else urlarray = blocked;
-    chrome.runtime.sendMessage({ reqtype: 'remove-temp', url: urlarray });
+
+    chrome.runtime.sendMessage(
+      /** @satisfies {RemoveTempRequest} */ ({
+        reqtype: 'remove-temp',
+        url: urlarray,
+      }),
+    );
   } else {
     if (mode == 'block') urlarray = blocked;
     else urlarray = allowed;
-    chrome.runtime.sendMessage({ reqtype: 'temp', url: urlarray, mode: mode });
+
+    chrome.runtime.sendMessage(
+      /** @satisfies {TempRequest} */ ({
+        reqtype: 'temp',
+        url: urlarray,
+        mode: mode,
+      }),
+    );
   }
+
   window.close();
 }
 
+/**
+ * @param {string} url
+ * @param {JQuery} el
+ * @param {NumericBool} type
+ */
 async function remove(url, el, type) {
   var val = el.attr('rel');
   var selected = el.hasClass('selected');
-  if (val != 2 && selected) return;
+  if (val != '2' && selected) return;
   port.postMessage({ url: taburl, tid: tabid });
   if (el.parent().hasClass('fpchoices')) {
     var fpType = el.parent().attr('sn_list');
-    var fpList;
+    /** @type {FingerprintType} */ var fpList;
     if (fpType == 'canvas.fingerprint') fpList = 'fpCanvas';
     else if (fpType == 'canvas.font.access') fpList = 'fpCanvasFont';
     else if (fpType == 'audio.fingerprint') fpList = 'fpAudio';
@@ -1541,11 +1584,15 @@ async function remove(url, el, type) {
     }
   }
   await bkg.triggerUpdated();
-  chrome.runtime.sendMessage({
-    reqtype: 'refresh-page-icon',
-    tid: tabid,
-    type: 1,
-  });
+
+  chrome.runtime.sendMessage(
+    /** @satisfies {RefreshPageIconRequest} */ ({
+      reqtype: 'refresh-page-icon',
+      tid: tabid,
+      type: 1,
+    }),
+  );
+
   if (closepage == 'true') window.close();
   else {
     var urlfriendly = url.replace(/[.\[\]:]/g, '_');
@@ -1559,7 +1606,7 @@ async function remove(url, el, type) {
       );
     }
     el.hide();
-    if (type == '0') {
+    if (type == 0) {
       $('.thirditem .x_' + urlfriendly)
         .parent()
         .children()
@@ -1575,7 +1622,7 @@ async function remove(url, el, type) {
         );
       $('.pbypass').show();
       $(".thirditem[rel='x_" + urlfriendly + "'] .x_bypass").show();
-    } else if (type == '1') {
+    } else if (type == 1) {
       if (!el.parent().hasClass('fpchoices')) {
         if (url == tabdomain) {
           $('.pallow,.pdeny,.pbypass,.ptrust').removeClass('selected');
@@ -1591,8 +1638,13 @@ async function remove(url, el, type) {
   }
 }
 
+/**
+ * @param {string} url
+ * @param {JQuery} el
+ * @param {NumericBool} type
+ */
 async function save(url, el, type) {
-  var val = el.attr('rel');
+  var val = Number(el.attr('rel'));
   var selected = el.hasClass('selected');
   if (val != 2 && selected) return;
   if (el.parent().hasClass('fpchoices')) {
@@ -1613,37 +1665,60 @@ async function save(url, el, type) {
       fpList = 'fpBrowserPlugins';
     if (val < 2) {
       bkg.fpDomainHandler(url, fpList, -1, 1);
-      chrome.runtime.sendMessage({
-        reqtype: 'save-fp',
-        url: url,
-        list: fpList,
-      });
+      chrome.runtime.sendMessage(
+        /** @satisfies {SaveFingerprintRequest} */ ({
+          reqtype: 'save-fp',
+          url: url,
+          list: fpList,
+        }),
+      );
     } else if (val == 2) {
       if (selected)
-        chrome.runtime.sendMessage({
-          reqtype: 'remove-temp-fp',
-          url: url,
-          list: fpList,
-        });
+        chrome.runtime.sendMessage(
+          /** @satisfies {RemoveTempFingerprintRequest} */ ({
+            reqtype: 'remove-temp-fp',
+            url: url,
+            list: fpList,
+          }),
+        );
       else
-        chrome.runtime.sendMessage({
-          reqtype: 'temp-fp',
-          url: url,
-          list: fpList,
-        });
+        chrome.runtime.sendMessage(
+          /** @satisfies {TempFingerprintRequest} */ ({
+            reqtype: 'temp-fp',
+            url: url,
+            list: fpList,
+          }),
+        );
     } else if (val == 3) {
       bkg.topHandler(url, fpList);
       val = 0;
     }
   } else {
     if (val < 2) {
-      bkg.domainHandler(url, '2', '1');
-      chrome.runtime.sendMessage({ reqtype: 'save', url: url, list: val });
+      bkg.domainHandler(url, 2, 1);
+      chrome.runtime.sendMessage(
+        /** @satisfies {SaveRequest} */ ({
+          reqtype: 'save',
+          url: url,
+          list: /** @type {HandlerAction} */ (val),
+        }),
+      );
     } else if (val == 2) {
       if (selected)
-        chrome.runtime.sendMessage({ reqtype: 'remove-temp', url: url });
+        chrome.runtime.sendMessage(
+          /** @satisfies {RemoveTempRequest} */ ({
+            reqtype: 'remove-temp',
+            url: url,
+          }),
+        );
       else
-        chrome.runtime.sendMessage({ reqtype: 'temp', url: url, mode: mode });
+        chrome.runtime.sendMessage(
+          /** @satisfies {TempRequest} */ {
+            reqtype: 'temp',
+            url: url,
+            mode: mode,
+          },
+        );
     } else if (val == 3) {
       bkg.topHandler(url, 0);
       val = 0;
@@ -1652,17 +1727,22 @@ async function save(url, el, type) {
       val = 1;
     }
   }
+
   if (val != 2) await bkg.triggerUpdated();
+
   if (url == tabdomain)
-    chrome.runtime.sendMessage({
-      reqtype: 'refresh-page-icon',
-      tid: tabid,
-      type: val,
-    });
+    chrome.runtime.sendMessage(
+      /** @satisfies {RefreshPageIconRequest} */ ({
+        reqtype: 'refresh-page-icon',
+        tid: tabid,
+        type: /** @type {0|1|2} */ (val),
+      }),
+    );
+
   if (closepage == 'true') window.close();
   else {
     var urlfriendly = url.replace(/[.\[\]:]/g, '_');
-    if (type == '0') {
+    if (type == 0) {
       $('.pallow,.pdeny,.pbypass,.ptrust').removeClass('selected');
       $(".thirditem[rel='x_" + urlfriendly + "'] .choices")
         .children()
@@ -1706,7 +1786,7 @@ async function save(url, el, type) {
           );
         }
       }
-    } else if (type == '1') {
+    } else if (type == 1) {
       el.parent().children().removeClass('selected');
       if (!el.parent().hasClass('fpchoices')) $('.x_' + urlfriendly).hide();
       if (url == tabdomain) {

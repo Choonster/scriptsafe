@@ -49,7 +49,7 @@ function baddies(src, amode, antisocial, lookupmode) {
 
 /**
  * @param {string} url
- * @param {string} taburl
+ * @param {string} [taburl]
  */
 function thirdParty(url, taburl) {
   if (url) {

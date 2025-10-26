@@ -51,6 +51,51 @@ declare type DomainCheckResult = -1 | 0 | 1;
 declare type EnableValue = DomainCheckResult | 3 | 4;
 declare type BaddiesResult = 1 | 2 | false;
 
+declare type CanvasMode = 'false' | 'blank' | 'random' | 'block';
+
+declare type TimeZoneMode =
+  | 'false'
+  | 'random'
+  | '720'
+  | '660'
+  | '600'
+  | '570'
+  | '540'
+  | '480'
+  | '420'
+  | '360'
+  | '300'
+  | '240'
+  | '210'
+  | '180'
+  | '120'
+  | '60'
+  | '0'
+  | '-60'
+  | '-120'
+  | '-180'
+  | '-210'
+  | '-240'
+  | '-270'
+  | '-300'
+  | '-330'
+  | '-345'
+  | '-360'
+  | '-390'
+  | '-420'
+  | '-480'
+  | '-510'
+  | '-525'
+  | '-540'
+  | '-570'
+  | '-600'
+  | '-630'
+  | '-660'
+  | '-720'
+  | '-765'
+  | '-780'
+  | '-840';
+
 declare type AnnoyancesMode = 'strict' | 'relaxed';
 
 declare type Mode = 'allow' | 'block';
@@ -62,6 +107,10 @@ declare type WebRtcMode =
 declare type LinkTargetMode = 'off' | 'same' | 'new';
 
 declare type UserAgentInterval = 'off' | 'interval' | 'request';
+
+declare type PreserveSameDomainMode = StringBool | 'strict';
+
+declare type ReferrerMode = StringBool | 'alldomains';
 
 declare type ReferrerSpoofMode = 'off' | 'same' | 'domain' | 'custom';
 
@@ -87,7 +136,7 @@ declare type Settings = {
   video: StringBool;
   image: StringBool;
   showcontext: StringBool;
-  canvas: StringBool;
+  canvas: CanvasMode;
   canvasfont: StringBool;
   clientrects: StringBool;
   audioblock: StringBool;
@@ -97,14 +146,14 @@ declare type Settings = {
   gamepad: StringBool;
   webvr: StringBool;
   bluetooth: StringBool;
-  timezone: StringBool;
+  timezone: TimeZoneMode;
   keyboard: StringBool;
   keydelta: number;
   xml: StringBool;
   annoyances: StringBool;
   annoyancesmode: AnnoyancesMode;
   antisocial: StringBool;
-  preservesamedomain: StringBool;
+  preservesamedomain: PreserveSameDomainMode;
   webbugs: StringBool;
   utm: StringBool;
   hashchecking: StringBool;
@@ -112,7 +161,7 @@ declare type Settings = {
   webrtc: WebRtcMode;
   classicoptions: StringBool;
   rating: StringBool;
-  referrer: StringBool;
+  referrer: ReferrerMode;
   linktarget: LinkTargetMode;
   domainsort: StringBool;
   useragentspoof: string; // TODO: Replace with union if needed
@@ -131,6 +180,53 @@ declare type Settings = {
 };
 
 declare type Setting = keyof Settings;
+
+declare type ContentScriptSettings = {
+  MODE: GetSettingsResponse['mode'];
+  LISTSTATUS: GetSettingsResponse['enable'];
+  DOMAINSTATUS: DomainCheckResult;
+  WHITELIST: GetSettingsResponse['whitelist'];
+  BLACKLIST: GetSettingsResponse['blacklist'];
+  WHITELISTSESSION: GetSettingsResponse['whitelistSession'];
+  BLACKLISTSESSION: GetSettingsResponse['blackListSession'];
+  SCRIPT: GetSettingsResponse['script'];
+  NOSCRIPT: GetSettingsResponse['noscript'];
+  OBJECT: GetSettingsResponse['object'];
+  APPLET: GetSettingsResponse['applet'];
+  EMBED: GetSettingsResponse['embed'];
+  IFRAME: GetSettingsResponse['iframe'];
+  FRAME: GetSettingsResponse['frame'];
+  AUDIO: GetSettingsResponse['audio'];
+  VIDEO: GetSettingsResponse['video'];
+  IMAGE: GetSettingsResponse['image'];
+  CANVAS: GetSettingsResponse['canvas'];
+  CANVASFONT: GetSettingsResponse['canvasfont'];
+  CLIENTRECTS: GetSettingsResponse['clientrects'];
+  AUDIOBLOCK: GetSettingsResponse['audioblock'];
+  BATTERY: GetSettingsResponse['battery'];
+  WEBGL: GetSettingsResponse['webgl'];
+  KEYBOARD: GetSettingsResponse['keyboard'];
+  WEBRTCDEVICE: GetSettingsResponse['webrtcdevice'];
+  GAMEPAD: GetSettingsResponse['gamepad'];
+  WEBVR: GetSettingsResponse['webvr'];
+  BLUETOOTH: GetSettingsResponse['bluetooth'];
+  TIMEZONE: GetSettingsResponse['timezone'];
+  ANNOYANCES: GetSettingsResponse['annoyances'];
+  ANNOYANCESMODE: GetSettingsResponse['annoyancesmode'];
+  ANTISOCIAL: GetSettingsResponse['antisocial'];
+  PRESERVESAMEDOMAIN: GetSettingsResponse['preservesamedomain'];
+  WEBBUGS: GetSettingsResponse['webbugs'];
+  LINKTARGET: GetSettingsResponse['linktarget'];
+  EXPERIMENTAL: GetSettingsResponse['experimental'];
+  REFERRER: GetSettingsResponse['referrer'];
+  REFERRERSPOOFDENYWHITELISTED: GetSettingsResponse['referrerspoofdenywhitelisted'];
+  PARANOIA: GetSettingsResponse['paranoia'];
+  CLIPBOARD: GetSettingsResponse['clipboard'];
+  DATAURL: GetSettingsResponse['dataurl'];
+  KEYDELTA: GetSettingsResponse['keydelta'];
+  BROWSERPLUGINS: GetSettingsResponse['browserplugins'];
+  USERAGENT: GetSettingsResponse['useragent'];
+};
 
 declare type ItemsEntry = {
   allowed?: [

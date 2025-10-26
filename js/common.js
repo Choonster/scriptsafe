@@ -224,3 +224,18 @@ function binarySearch(list, item) {
   }
   return -1;
 }
+
+/**
+ * @param {string | number | undefined} input
+ */
+function parseIntOptional(input) {
+  if (typeof input === 'number') {
+    return input;
+  } else if (typeof input !== 'string') {
+    return undefined;
+  }
+
+  const value = parseInt(input);
+
+  return value;
+}

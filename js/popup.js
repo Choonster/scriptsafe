@@ -16,7 +16,11 @@ var /** @type {StringBool} */ closepage,
 
 var selected = false;
 var intemp = false;
+
+/** @type {string[]} */
 var blocked = [];
+
+/** @type {string[]} */
 var allowed = [];
 
 var statuschange = function () {
@@ -119,6 +123,7 @@ document.addEventListener('DOMContentLoaded', function () {
 function init() {
   $('#version').html(version);
   $('#pop_options').html(bkg.getLocale('options'));
+
   chrome.tabs.query({ active: true, currentWindow: true }, function (_tab) {
     const tab = _tab[0];
     taburl = tab.url;
@@ -207,9 +212,11 @@ function init() {
             $('.thirds').html('<i>' + bkg.getLocale('noexternal') + '</i>');
           } else {
             if (responseBlockedCount != 0) {
-              if (response.domainsort == 'true')
-                response.blockeditems = bkg.domainSort(response.blockeditems);
-              else response.blockeditems.sort();
+              const blockedItems =
+                response.domainsort === 'true'
+                  ? bkg.domainSort(response.blockeditems)
+                  : response.blockeditems.sort();
+
               $('.thirds')
                 .parent()
                 .after(
@@ -218,54 +225,54 @@ function init() {
                     "</span></td></tr><tr><td class='thirds' id='blocked'></td></tr>",
                 );
               $('.thirds:first').parent().remove();
+
               for (var i = 0; i < responseBlockedCount; i++) {
-                var itemdomain = response.blockeditems[i][2];
-                var fpitemdomain = response.blockeditems[i][2];
-                if (response.blockeditems[i][1] == 'NOSCRIPT')
-                  itemdomain = 'no.script';
-                else if (response.blockeditems[i][1] == 'WEBBUG')
-                  itemdomain = 'web.bug';
-                else if (response.blockeditems[i][1] == 'Canvas Fingerprint')
+                let itemdomain = blockedItems[i][2];
+                const fpitemdomain = blockedItems[i][2];
+
+                if (blockedItems[i][1] == 'NOSCRIPT') itemdomain = 'no.script';
+                else if (blockedItems[i][1] == 'WEBBUG') itemdomain = 'web.bug';
+                else if (blockedItems[i][1] == 'Canvas Fingerprint')
                   itemdomain = 'canvas.fingerprint';
-                else if (response.blockeditems[i][1] == 'Canvas Font Access')
+                else if (blockedItems[i][1] == 'Canvas Font Access')
                   itemdomain = 'canvas.font.access';
-                else if (response.blockeditems[i][1] == 'Audio Fingerprint')
+                else if (blockedItems[i][1] == 'Audio Fingerprint')
                   itemdomain = 'audio.fingerprint';
-                else if (response.blockeditems[i][1] == 'WebGL Fingerprint')
+                else if (blockedItems[i][1] == 'WebGL Fingerprint')
                   itemdomain = 'webgl.fingerprint';
-                else if (response.blockeditems[i][1] == 'Battery Fingerprint')
+                else if (blockedItems[i][1] == 'Battery Fingerprint')
                   itemdomain = 'battery.fingerprint';
-                else if (response.blockeditems[i][1] == 'Device Enumeration')
+                else if (blockedItems[i][1] == 'Device Enumeration')
                   itemdomain = 'device.enumeration';
-                else if (response.blockeditems[i][1] == 'Gamepad Enumeration')
+                else if (blockedItems[i][1] == 'Gamepad Enumeration')
                   itemdomain = 'gamepad.enumeration';
-                else if (response.blockeditems[i][1] == 'WebVR Enumeration')
+                else if (blockedItems[i][1] == 'WebVR Enumeration')
                   itemdomain = 'webvr.enumeration';
-                else if (response.blockeditems[i][1] == 'Bluetooth Enumeration')
+                else if (blockedItems[i][1] == 'Bluetooth Enumeration')
                   itemdomain = 'bluetooth.enumeration';
-                else if (response.blockeditems[i][1] == 'Spoofed Timezone')
+                else if (blockedItems[i][1] == 'Spoofed Timezone')
                   itemdomain = 'spoofed.timezone';
-                else if (response.blockeditems[i][1] == 'Client Rectangles')
+                else if (blockedItems[i][1] == 'Client Rectangles')
                   itemdomain = 'client.rectangles';
-                else if (
-                  response.blockeditems[i][1] == 'Clipboard Interference'
-                )
+                else if (blockedItems[i][1] == 'Clipboard Interference')
                   itemdomain = 'clipboard.interference';
-                else if (
-                  response.blockeditems[i][1] == 'Browser Plugins Enumeration'
-                )
+                else if (blockedItems[i][1] == 'Browser Plugins Enumeration')
                   itemdomain = 'browser.plugins.enumeration';
-                else if (response.blockeditems[i][1] == 'Data URL')
+                else if (blockedItems[i][1] == 'Data URL')
                   itemdomain = 'data.url';
+
                 if (itemdomain) {
-                  const baddiesstatus = response.blockeditems[i][5];
-                  var parentstatus = response.blockeditems[i][4];
-                  var itemdomainfriendly = itemdomain.replace(/[.\[\]:]/g, '_');
-                  var fpitemdomainfriendly = fpitemdomain.replace(
+                  const baddiesstatus = blockedItems[i][5];
+                  const parentstatus = blockedItems[i][4];
+                  const itemdomainfriendly = itemdomain.replace(
                     /[.\[\]:]/g,
                     '_',
                   );
-                  var domainCheckStatus = response.blockeditems[i][3];
+                  const fpitemdomainfriendly = fpitemdomain.replace(
+                    /[.\[\]:]/g,
+                    '_',
+                  );
+                  const domainCheckStatus = blockedItems[i][3];
                   blocked.push(itemdomain);
                   if (
                     $('#blocked .thirditem[rel="x_' + itemdomainfriendly + '"]')
@@ -285,19 +292,18 @@ function init() {
                       } else allowedtype = 1;
                       var outputdomain = itemdomain;
                       if (
-                        response.blockeditems[i][1] == 'NOSCRIPT' ||
-                        response.blockeditems[i][1] == 'WEBBUG'
+                        blockedItems[i][1] == 'NOSCRIPT' ||
+                        blockedItems[i][1] == 'WEBBUG'
                       )
-                        outputdomain =
-                          '&lt;' + response.blockeditems[i][1] + '&gt;';
-                      else if (response.blockeditems[i][6])
-                        outputdomain = response.blockeditems[i][1];
+                        outputdomain = '&lt;' + blockedItems[i][1] + '&gt;';
+                      else if (blockedItems[i][6])
+                        outputdomain = blockedItems[i][1];
                       $('#blocked').append(
                         '<div class="thirditem" title="[' +
-                          response.blockeditems[i][1] +
+                          blockedItems[i][1] +
                           '] ' +
                           $.trim(
-                            response.blockeditems[i][0]
+                            blockedItems[i][0]
                               .replace(/"/g, "'")
                               .replace(/\&lt;/g, '<')
                               .replace(/\&gt;/g, '>')
@@ -341,15 +347,15 @@ function init() {
                       );
                     } else {
                       if (
-                        response.blockeditems[i][1] == 'NOSCRIPT' ||
-                        response.blockeditems[i][1] == 'WEBBUG'
+                        blockedItems[i][1] == 'NOSCRIPT' ||
+                        blockedItems[i][1] == 'WEBBUG'
                       ) {
                         $('#blocked').append(
                           '<div class="thirditem" title="[' +
-                            response.blockeditems[i][1] +
+                            blockedItems[i][1] +
                             '] ' +
                             $.trim(
-                              response.blockeditems[i][0]
+                              blockedItems[i][0]
                                 .replace(/"/g, "'")
                                 .replace(/\&lt;/g, '<')
                                 .replace(/\&gt;/g, '>')
@@ -362,21 +368,21 @@ function init() {
                             '" data-baddie="' +
                             baddiesstatus +
                             '"><span><span>&lt;' +
-                            response.blockeditems[i][1] +
+                            blockedItems[i][1] +
                             '&gt;</span> (<span rel="count_' +
                             itemdomainfriendly +
                             '">1</span>)</span></div>',
                         );
                       } else if (
-                        response.blockeditems[i][1] == 'Spoofed Timezone' ||
-                        response.blockeditems[i][1] == 'Data URL'
+                        blockedItems[i][1] == 'Spoofed Timezone' ||
+                        blockedItems[i][1] == 'Data URL'
                       ) {
                         $('#blocked').append(
                           '<div class="thirditem" title="[' +
-                            response.blockeditems[i][1] +
+                            blockedItems[i][1] +
                             '] ' +
                             $.trim(
-                              response.blockeditems[i][0]
+                              blockedItems[i][0]
                                 .replace(/"/g, "'")
                                 .replace(/\&lt;/g, '<')
                                 .replace(/\&gt;/g, '>')
@@ -389,12 +395,12 @@ function init() {
                             '" data-baddie="' +
                             baddiesstatus +
                             '"><span><span>' +
-                            response.blockeditems[i][1] +
+                            blockedItems[i][1] +
                             '</span> (<span rel="count_' +
                             itemdomainfriendly +
                             '">1</span>)</span></div>',
                         );
-                      } else if (response.blockeditems[i][6]) {
+                      } else if (blockedItems[i][6]) {
                         if (
                           $(
                             '#blocked .fpcat[rel="x_' +
@@ -410,16 +416,16 @@ function init() {
                               '" data-baddie="' +
                               baddiesstatus +
                               '"><div class="fphead">' +
-                              response.blockeditems[i][1] +
+                              blockedItems[i][1] +
                               ' (<span rel="count_' +
                               itemdomainfriendly +
                               '">1</span>)<span class="chevron"></span></div><div class="fpoptions details_' +
                               itemdomainfriendly +
                               '"><div class="fpitem" title="[' +
-                              response.blockeditems[i][1] +
+                              blockedItems[i][1] +
                               '] ' +
                               $.trim(
-                                response.blockeditems[i][0]
+                                blockedItems[i][0]
                                   .replace(/"/g, "'")
                                   .replace(/\&lt;/g, '<')
                                   .replace(/\&gt;/g, '>')
@@ -467,10 +473,10 @@ function init() {
                                 "'] .fpoptions",
                             ).append(
                               '<div class="fpitem" title="[' +
-                                response.blockeditems[i][1] +
+                                blockedItems[i][1] +
                                 '] ' +
                                 $.trim(
-                                  response.blockeditems[i][0]
+                                  blockedItems[i][0]
                                     .replace(/"/g, "'")
                                     .replace(/\&lt;/g, '<')
                                     .replace(/\&gt;/g, '>')
@@ -518,10 +524,10 @@ function init() {
                                 '"]',
                             ).attr('title') +
                               '\r\n[' +
-                              response.blockeditems[i][1] +
+                              blockedItems[i][1] +
                               '] ' +
                               $.trim(
-                                response.blockeditems[i][0]
+                                blockedItems[i][0]
                                   .replace(/"/g, "'")
                                   .replace(/\&lt;/g, '<')
                                   .replace(/\&gt;/g, '>')
@@ -576,10 +582,10 @@ function init() {
                       } else {
                         $('#blocked').append(
                           '<div class="thirditem" title="[' +
-                            response.blockeditems[i][1] +
+                            blockedItems[i][1] +
                             '] ' +
                             $.trim(
-                              response.blockeditems[i][0]
+                              blockedItems[i][0]
                                 .replace(/"/g, "'")
                                 .replace(/\&lt;/g, '<')
                                 .replace(/\&gt;/g, '>')
@@ -636,10 +642,10 @@ function init() {
                         'title',
                       ) +
                         '\r\n[' +
-                        response.blockeditems[i][1] +
+                        blockedItems[i][1] +
                         '] ' +
                         $.trim(
-                          response.blockeditems[i][0]
+                          blockedItems[i][0]
                             .replace(/"/g, "'")
                             .replace(/\&lt;/g, '<')
                             .replace(/\&gt;/g, '>')
@@ -666,7 +672,7 @@ function init() {
                         itemdomain +
                         '"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></a></span>',
                     );
-                    if (response.blockeditems[i][6])
+                    if (blockedItems[i][6])
                       $(
                         '#blocked [rel="rfp_' + fpitemdomainfriendly + '"]',
                       ).html(
@@ -803,6 +809,7 @@ function init() {
                   }
                 }
               }
+
               $('#blocked').append(
                 $(
                   '.thirditem:has([title="Ignored allowed domain due to unlisted tab domain"])',
@@ -853,10 +860,13 @@ function init() {
                 $("#blocked [rel='x_" + tabdomainfriendly + "']"),
               );
             }
+
             if (responseAllowedCount != 0) {
-              if (response.domainsort == 'true')
-                response.alloweditems = bkg.domainSort(response.alloweditems);
-              else response.alloweditems.sort();
+              const allowedItems =
+                response.domainsort === 'true'
+                  ? bkg.domainSort(response.alloweditems)
+                  : response.alloweditems.sort();
+
               $('.thirds')
                 .parent()
                 .parent()
@@ -866,35 +876,31 @@ function init() {
                     "</span></td></tr><tr><td class='thirds' id='allowed'></td></tr>",
                 );
               for (var i = 0; i < responseAllowedCount; i++) {
-                var itemdomain = response.alloweditems[i][2];
-                var fpitemdomain = response.alloweditems[i][2];
-                if (response.alloweditems[i][1] == 'Canvas Fingerprint')
+                var itemdomain = allowedItems[i][2];
+                var fpitemdomain = allowedItems[i][2];
+                if (allowedItems[i][1] == 'Canvas Fingerprint')
                   itemdomain = 'canvas.fingerprint';
-                else if (response.alloweditems[i][1] == 'Canvas Font Access')
+                else if (allowedItems[i][1] == 'Canvas Font Access')
                   itemdomain = 'canvas.font.access';
-                else if (response.alloweditems[i][1] == 'Audio Fingerprint')
+                else if (allowedItems[i][1] == 'Audio Fingerprint')
                   itemdomain = 'audio.fingerprint';
-                else if (response.alloweditems[i][1] == 'WebGL Fingerprint')
+                else if (allowedItems[i][1] == 'WebGL Fingerprint')
                   itemdomain = 'webgl.fingerprint';
-                else if (response.alloweditems[i][1] == 'Battery Fingerprint')
+                else if (allowedItems[i][1] == 'Battery Fingerprint')
                   itemdomain = 'battery.fingerprint';
-                else if (response.alloweditems[i][1] == 'Device Enumeration')
+                else if (allowedItems[i][1] == 'Device Enumeration')
                   itemdomain = 'device.enumeration';
-                else if (response.alloweditems[i][1] == 'Gamepad Enumeration')
+                else if (allowedItems[i][1] == 'Gamepad Enumeration')
                   itemdomain = 'gamepad.enumeration';
-                else if (response.alloweditems[i][1] == 'WebVR Enumeration')
+                else if (allowedItems[i][1] == 'WebVR Enumeration')
                   itemdomain = 'webvr.enumeration';
-                else if (response.alloweditems[i][1] == 'Bluetooth Enumeration')
+                else if (allowedItems[i][1] == 'Bluetooth Enumeration')
                   itemdomain = 'bluetooth.enumeration';
-                else if (response.alloweditems[i][1] == 'Client Rectangles')
+                else if (allowedItems[i][1] == 'Client Rectangles')
                   itemdomain = 'client.rectangles';
-                else if (
-                  response.alloweditems[i][1] == 'Clipboard Interference'
-                )
+                else if (allowedItems[i][1] == 'Clipboard Interference')
                   itemdomain = 'clipboard.interference';
-                else if (
-                  response.alloweditems[i][1] == 'Browser Plugins Enumeration'
-                )
+                else if (allowedItems[i][1] == 'Browser Plugins Enumeration')
                   itemdomain = 'browser.plugins.enumeration';
                 if (itemdomain) {
                   allowed.push(itemdomain);
@@ -903,12 +909,12 @@ function init() {
                     /[.\[\]:]/g,
                     '_',
                   );
-                  const baddiesstatus = response.alloweditems[i][4];
+                  const baddiesstatus = allowedItems[i][4];
                   if (
                     $('#allowed .thirditem[rel="x_' + itemdomainfriendly + '"]')
                       .length == 0
                   ) {
-                    if (response.alloweditems[i][3] == 0) {
+                    if (allowedItems[i][3] == 0) {
                       var trustval0 = '';
                       var trustval1 = '';
                       var allowedtype;
@@ -922,10 +928,10 @@ function init() {
                       } else allowedtype = 0;
                       $('#allowed').append(
                         '<div class="thirditem" title="[' +
-                          response.alloweditems[i][1] +
+                          allowedItems[i][1] +
                           '] ' +
                           $.trim(
-                            response.alloweditems[i][0]
+                            allowedItems[i][0]
                               .replace(/"/g, "'")
                               .replace(/\&lt;/g, '<')
                               .replace(/\&gt;/g, '>')
@@ -974,7 +980,7 @@ function init() {
                           itemdomainfriendly,
                       ).bind('click', x_removehandle);
                     } else {
-                      if (response.alloweditems[i][5]) {
+                      if (allowedItems[i][5]) {
                         if (
                           $(
                             '#allowed .fpcat[rel="x_' +
@@ -990,14 +996,14 @@ function init() {
                               '" data-baddie="' +
                               baddiesstatus +
                               '"><div class="fphead">' +
-                              response.alloweditems[i][1] +
+                              allowedItems[i][1] +
                               '<span class="chevron"></span></div><div class="fpoptions details_' +
                               itemdomainfriendly +
                               '"><div class="fpitem" title="[' +
-                              response.alloweditems[i][1] +
+                              allowedItems[i][1] +
                               '] ' +
                               $.trim(
-                                response.alloweditems[i][0]
+                                allowedItems[i][0]
                                   .replace(/"/g, "'")
                                   .replace(/\&lt;/g, '<')
                                   .replace(/\&gt;/g, '>')
@@ -1043,10 +1049,10 @@ function init() {
                                 "'] .fpoptions",
                             ).append(
                               '<div class="fpitem" title="[' +
-                                response.alloweditems[i][1] +
+                                allowedItems[i][1] +
                                 '] ' +
                                 $.trim(
-                                  response.alloweditems[i][0]
+                                  allowedItems[i][0]
                                     .replace(/"/g, "'")
                                     .replace(/\&lt;/g, '<')
                                     .replace(/\&gt;/g, '>')
@@ -1080,10 +1086,10 @@ function init() {
                       } else {
                         $('#allowed').append(
                           '<div class="thirditem" title="[' +
-                            response.alloweditems[i][1] +
+                            allowedItems[i][1] +
                             '] ' +
                             $.trim(
-                              response.alloweditems[i][0]
+                              allowedItems[i][0]
                                 .replace(/"/g, "'")
                                 .replace(/\&lt;/g, '<')
                                 .replace(/\&gt;/g, '>')
@@ -1134,9 +1140,9 @@ function init() {
                         'title',
                       ) +
                         '\r\n[' +
-                        response.alloweditems[i][1] +
+                        allowedItems[i][1] +
                         '] ' +
-                        response.alloweditems[i][0],
+                        allowedItems[i][0],
                     );
                     $("#allowed [rel='count_" + itemdomainfriendly + "']").html(
                       String(
@@ -1158,7 +1164,7 @@ function init() {
                         itemdomain +
                         '"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></a></span>',
                     );
-                    if (response.alloweditems[i][5])
+                    if (allowedItems[i][5])
                       $(
                         '#allowed [rel="rfp_' + fpitemdomainfriendly + '"]',
                       ).html(
@@ -1216,8 +1222,8 @@ function init() {
                       ).hide();
                     }
                   }
-                  if (response.alloweditems[i][5]) {
-                    if (response.alloweditems[i][3] == 2)
+                  if (allowedItems[i][5]) {
+                    if (allowedItems[i][3] == 2)
                       $(
                         '#allowed .fpcat[rel="x_' +
                           itemdomainfriendly +
@@ -1227,7 +1233,7 @@ function init() {
                       )
                         .addClass('selected')
                         .show();
-                    else if (response.alloweditems[i][3] == 1) {
+                    else if (allowedItems[i][3] == 1) {
                       $(
                         '#allowed .fpcat[rel="x_' +
                           itemdomainfriendly +
@@ -1430,7 +1436,7 @@ function init() {
               if (response.enable == 4)
                 $(".ptrust[rel='4']").addClass('selected');
             }
-            var domainCheckStatus = bkg.domainCheck(taburl, 1);
+            const domainCheckStatus = bkg.domainCheck(taburl, 1);
             var baddiesStatus = bkg.baddies(
               taburl,
               response.annoyancesmode,

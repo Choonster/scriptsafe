@@ -96,11 +96,14 @@ declare type TimeZoneMode =
   | '-780'
   | '-840';
 
+declare type XmlMode = StringBool | 'all';
+
 declare type AnnoyancesMode = 'strict' | 'relaxed';
 
 declare type Mode = 'allow' | 'block';
 
 declare type WebRtcMode =
+  | 'off'
   | 'default_public_interface_only'
   | 'disable_non_proxied_udp';
 
@@ -128,7 +131,7 @@ declare type Settings = {
   script: StringBool;
   noscript: StringBool;
   object: StringBool;
-  applet;
+  applet: StringBool;
   embed: StringBool;
   iframe: StringBool;
   frame: StringBool;
@@ -149,7 +152,7 @@ declare type Settings = {
   timezone: TimeZoneMode;
   keyboard: StringBool;
   keydelta: number;
-  xml: StringBool;
+  xml: XmlMode;
   annoyances: StringBool;
   annoyancesmode: AnnoyancesMode;
   antisocial: StringBool;
@@ -180,6 +183,15 @@ declare type Settings = {
 };
 
 declare type Setting = keyof Settings;
+
+declare type StringSettings = {
+  [Key in keyof Settings]: Settings[Key] extends string
+    ? Settings[Key]
+    : `${Settings[Key]}`;
+};
+
+// Add settings to localStorage
+declare interface Storage extends StringSettings {}
 
 declare type ContentScriptSettings = {
   MODE: GetSettingsResponse['mode'];
@@ -228,24 +240,30 @@ declare type ContentScriptSettings = {
   USERAGENT: GetSettingsResponse['useragent'];
 };
 
+declare type AllowedEntry = [
+  string,
+  WebRequestTypeUpper | BlockedNode,
+  string,
+  FingerprintEnabledType | DomainCheckResult,
+  BaddiesResult,
+  true?,
+];
+
+declare type BlockedEntry = [
+  string,
+  WebRequestTypeUpper | BlockedNode,
+  string,
+  DomainCheckResult,
+  DomainCheckResult,
+  BaddiesResult,
+  boolean,
+];
+
+declare type AllowedOrBlockedEntry = AllowedEntry | BlockedEntry;
+
 declare type ItemsEntry = {
-  allowed?: [
-    string,
-    WebRequestTypeUpper | BlockedNode,
-    string,
-    FingerprintEnabledType | DomainCheckResult,
-    DomainCheckResult | BaddiesResult,
-    true?,
-  ][];
-  blocked?: [
-    string,
-    string,
-    string,
-    DomainCheckResult,
-    DomainCheckResult,
-    BaddiesResult,
-    boolean,
-  ][];
+  allowed?: AllowedEntry[];
+  blocked?: BlockedEntry[];
 } & [number];
 
 declare type ItemsEntryKey = 'allowed' | 'blocked';
@@ -315,26 +333,25 @@ declare type RecentLog = {
 
 declare type RecentList = keyof RecentLog;
 
-// TODO: Fill in types
-declare type HostsEntry = [
-  unknown,
-  unknown,
-  string,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-];
-
 declare type SplitHostsEntry = [
   string,
-  HostsEntry[0],
-  HostsEntry[1]?,
-  HostsEntry[2]?,
-  HostsEntry[3]?,
-  HostsEntry[4]?,
-  HostsEntry[5]?,
-  HostsEntry[6]?,
+  AllowedOrBlockedEntry[0],
+  AllowedOrBlockedEntry[1],
+  AllowedOrBlockedEntry[2],
+  AllowedOrBlockedEntry[3],
+  AllowedOrBlockedEntry[4],
+  AllowedOrBlockedEntry[5],
+  AllowedOrBlockedEntry[6],
+];
+
+declare type HostsEntry = [
+  SplitHostsEntry[1],
+  SplitHostsEntry[2],
+  SplitHostsEntry[3],
+  SplitHostsEntry[4],
+  SplitHostsEntry[5],
+  SplitHostsEntry[6],
+  SplitHostsEntry[7],
 ];
 
 declare type HostsList = HostsEntry[];
@@ -413,7 +430,7 @@ declare interface BackgroundWindow extends Window {
     lookupmode?: 1 | 2,
   ): BaddiesResult;
   domainSort(hosts: string[]): string[];
-  domainSort(hosts: HostsList): HostsList;
+  domainSort(hosts: AllowedEntry[] | BlockedEntry[]): HostsList;
   getUpdated(): boolean;
   setUpdated(): void;
   setDefaultOptions(force?: 1 | 2): void;

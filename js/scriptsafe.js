@@ -229,7 +229,9 @@ function genUserAgent(force) {
               function () {
                 genUserAgent(1);
               },
-              localStorage['useragentintervalmins'] * 60 * 1000,
+              parseIntOptional(localStorage['useragentintervalmins']) *
+                60 *
+                1000,
             );
             if (force)
               userAgent = userAgents[Math.floor(Math.random() * uaCount)];
@@ -637,7 +639,7 @@ function ScriptSafe(req) {
         extractedReqDomain = extractedReqDomain.substr(4);
       ITEMS[req.tabId]['blocked'].push([
         cleanedUrl,
-        reqtype.toUpperCase(),
+        /** @type {WebRequestTypeUpper} */ (reqtype.toUpperCase()),
         extractedReqDomain,
         domainCheckStatus,
         tabDomainCheckStatus,
@@ -874,61 +876,68 @@ function domainCheck(domain, req) {
 }
 
 /**
- * @param {HostsList | string[]} hosts
+ * @param {AllowedEntry[] | BlockedEntry[] | string[]} hosts
  * @returns {HostsList | string[]}
  */
 function domainSort(hosts) {
   if (hosts.length > 0) {
-    /** @type {HostsList} */
-    const sorted_hosts = new Array();
-
-    /** @type {SplitHostsEntry[]} */
-    const split_hosts = new Array();
-
     if (typeof hosts[0] === 'object') {
-      for (var h in hosts) {
-        split_hosts.push([
-          getDomain(hosts[h][2]),
-          hosts[h][0],
-          hosts[h][1],
-          hosts[h][2],
-          hosts[h][3],
-          hosts[h][4],
-          hosts[h][5],
-          hosts[h][6],
-        ]);
-      }
-      split_hosts.sort();
-      for (var h in split_hosts) {
-        sorted_hosts.push([
-          split_hosts[h][1],
-          split_hosts[h][2],
-          split_hosts[h][3],
-          split_hosts[h][4],
-          split_hosts[h][5],
-          split_hosts[h][6],
-          split_hosts[h][7],
+      const objectHosts = /** @type {AllowedEntry[] | BlockedEntry[]} */ (
+        hosts
+      );
+
+      const sortedHosts = /** @type {HostsList} */ ([]);
+
+      const splitHosts = /** @type {SplitHostsEntry[]} */ ([]);
+
+      for (let host of objectHosts) {
+        splitHosts.push([
+          getDomain(host[2]),
+          host[0],
+          host[1],
+          host[2],
+          host[3],
+          host[4],
+          host[5],
+          host[6],
         ]);
       }
 
-      return sorted_hosts;
+      splitHosts.sort();
+
+      for (let host of splitHosts) {
+        sortedHosts.push([
+          host[1],
+          host[2],
+          host[3],
+          host[4],
+          host[5],
+          host[6],
+          host[7],
+        ]);
+      }
+
+      return sortedHosts;
     } else {
+      const stringHosts = /** @type {string[]} */ (hosts);
+
       /** @type {string[]} */
-      const sorted_hosts = new Array();
+      const sortedHosts = [];
 
       /** @type {[string, string][]} */
-      const split_hosts = new Array();
+      const splitHosts = [];
 
-      for (var h in hosts) {
-        const host = /** @type {string} */ (hosts[h]);
-        split_hosts.push([getDomain(host), host]);
-      }
-      split_hosts.sort();
-      for (var h in split_hosts) {
-        sorted_hosts.push(split_hosts[h][1]);
+      for (let host of stringHosts) {
+        splitHosts.push([getDomain(host), host]);
       }
 
-      return sorted_hosts;
+      splitHosts.sort();
+
+      for (let host of splitHosts) {
+        sortedHosts.push(host[1]);
+      }
+
+      return sortedHosts;
     }
   }
 
@@ -1744,7 +1753,7 @@ chrome.runtime.onMessage.addListener(
         timezone: localStorage['timezone'],
         browserplugins: localStorage['browserplugins'],
         keyboard: localStorage['keyboard'],
-        keydelta: localStorage['keydelta'],
+        keydelta: parseIntOptional(localStorage['keydelta']),
         webbugs: localStorage['webbugs'],
         referrer: localStorage['referrer'],
         referrerspoofdenywhitelisted:
@@ -2506,7 +2515,7 @@ async function freshSync(force) {
       }
       settingssync['useragentCount2'] = i;
       settingssync['lastSync'] = milliseconds;
-      localStorage['lastSync'] = milliseconds;
+      localStorage['lastSync'] = `${milliseconds}`;
       if (
         chrome.storage.sync.QUOTA_BYTES < JSON.stringify(settingssync).length
       ) {

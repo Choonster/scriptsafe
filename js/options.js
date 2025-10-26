@@ -29,7 +29,8 @@ document.addEventListener('DOMContentLoaded', function () {
   $('.save').click(saveOptions);
 
   $('#keydelta').blur(function () {
-    if ($(this).val() < 0 || isNaN(parseInt($(this).val()))) {
+    const val = $(this).val();
+    if (!isNonNegativeNumber(val)) {
       $(this).val(40);
       saveElement('keydelta');
     }
@@ -65,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
   $('#savetxt').click(downloadtxt);
 
   $('#viewtoggle').click(function () {
-    viewToggle(1);
+    viewToggle(true);
   });
 
   $('#hotkeyspage').click(function () {
@@ -87,15 +88,21 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   $('#useragent').keyup(function () {
-    if ($(this).val().indexOf('\n') != -1) $('.useragentrandom').show();
-    else $('.useragentrandom').hide();
+    const val = $(this).val();
+    if (typeof val === 'string' && val.indexOf('\n') != -1) {
+      $('.useragentrandom').show();
+    } else {
+      $('.useragentrandom').hide();
+    }
   });
 
-  syncstatus = localStorage['syncenable'];
+  syncstatus = localStorage['syncenable'] === 'true';
 
   $('.row-offcanvas').show();
 
-  if (localStorage['optionslist'] == 'true') viewToggle(0);
+  if (localStorage['optionslist'] == 'true') {
+    viewToggle(false);
+  }
 
   $('#sidebar').stickyScroll({ container: '#sectionname' });
 
@@ -467,13 +474,30 @@ function getStringValueById(id) {
 }
 
 /**
+ * @param {string} selector
+ */
+function getStringValueBySelector(selector) {
+  const val = $(selector).val();
+
+  if (typeof val !== 'string') {
+    throw new Error(
+      `Expected string value for element with selector "${selector}"`,
+    );
+  }
+
+  return val;
+}
+
+/**
  * @param {string} id
  */
 function loadCheckbox(id) {
   const element = getCheckboxById(id);
 
   element.checked =
-    typeof localStorage[id] == 'undefined' ? false : localStorage[id] == 'true';
+    typeof localStorage[id] === 'undefined'
+      ? false
+      : localStorage[id] === 'true';
 }
 
 /**
@@ -525,6 +549,18 @@ function saveList(id) {
   localStorage[id] = JSON.stringify(val.split('\n'));
 }
 
+/**
+ * @param {ReturnType<JQuery['val']>} val
+ */
+function isNonNegativeNumber(val) {
+  return (
+    val &&
+    typeof val !== 'object' &&
+    parseIntOptional(val) >= 0 &&
+    isNaN(parseIntOptional(val))
+  );
+}
+
 function loadOptions() {
   $('#title').html('ScriptSafe v' + version);
 
@@ -574,7 +610,7 @@ function loadOptions() {
 
   loadElement('keydelta');
 
-  if ($('#keydelta').val() < 0 || isNaN(parseInt($('#keydelta').val()))) {
+  if (!isNonNegativeNumber($('#keydelta').val())) {
     $('#keydelta').val(40);
     saveElement('keydelta');
   }
@@ -638,8 +674,12 @@ function loadOptions() {
     $('#customreferrer').hide();
   }
 
-  if ($('#useragent').val().indexOf('\n') == -1) $('.useragentrandom').hide();
-  else $('.useragentrandom').show();
+  const userAgentVal = $('#useragent').val();
+  if (typeof userAgentVal !== 'string' || userAgentVal.indexOf('\n') == -1) {
+    $('.useragentrandom').hide();
+  } else {
+    $('.useragentrandom').show();
+  }
 
   if (localStorage['useragentinterval'] == 'interval')
     $('#useragentintervaloption').show();
@@ -738,11 +778,14 @@ async function saveOptions() {
     saveElement('referrerspoof');
     $('#customreferrer').hide();
   } else {
-    if ($('#userref').val() != '')
-      localStorage['referrerspoof'] = $('#userref').val();
-    else {
+    const userRefValue = $('#userref').val();
+    if (typeof userRefValue === 'string' && userRefValue != '') {
+      localStorage['referrerspoof'] = /** @type {ReferrerSpoofMode} */ (
+        userRefValue
+      );
+    } else {
       $('#customreferrer').show();
-      $('#userref').focus;
+      $('#userref').focus();
     }
   }
 
@@ -763,11 +806,18 @@ async function saveOptions() {
     $('#useragentspoof_os, #applytoallow').show();
   }
 
-  if (localStorage['hashchecking'] != 'off') $('#applytoallowhash').show();
-  else $('#applytoallowhash').hide();
+  if (localStorage['hashchecking'] !== 'false') {
+    $('#applytoallowhash').show();
+  } else {
+    $('#applytoallowhash').hide();
+  }
 
-  if ($('#useragent').val().indexOf('\n') == -1) $('.useragentrandom').hide();
-  else $('.useragentrandom').show();
+  const userAgentVal = $('#useragent').val();
+  if (typeof userAgentVal !== 'string' || userAgentVal.indexOf('\n') == -1) {
+    $('.useragentrandom').hide();
+  } else {
+    $('.useragentrandom').show();
+  }
 
   if (localStorage['useragentinterval'] == 'interval')
     $('#useragentintervaloption').show();
@@ -817,49 +867,55 @@ function selectAll(id) {
 
 function settingsImport() {
   var error = '';
-  var settings = $('#settingsimport').val().split('\n');
 
-  if ($.trim($('#settingsimport').val()) == '') {
+  const settingsImportVal = getStringValueById('settingsimport');
+
+  const settings = settingsImportVal.split('\n');
+
+  if (settingsImportVal.trim() == '') {
     notification(bkg.getLocale('pastesettings'));
     return false;
   }
 
   if (settings.length > 0) {
-    $.each(settings, function (i, v) {
-      if ($.trim(v) != '') {
-        var settingentry = $.trim(v).split('|');
+    $.each(settings, function (_i, v) {
+      if (v.trim() != '') {
+        var settingentry = v.trim().split('|');
         if (
-          settingnames.indexOf($.trim(settingentry[0])) != -1 &&
-          ($.trim(settingentry[1]) != '' ||
-            $.trim(settingentry[0]) == 'useragent')
+          settingnames.indexOf(settingentry[0].trim()) != -1 &&
+          ((settingentry[1] ?? '').trim() != '' ||
+            settingentry[0] == 'useragent')
         ) {
           if (
-            $.trim(settingentry[0]) == 'whiteList' ||
-            $.trim(settingentry[0]) == 'blackList' ||
-            $.trim(settingentry[0]) == 'useragent'
+            settingentry[0].trim() == 'whiteList' ||
+            settingentry[0].trim() == 'blackList' ||
+            settingentry[0].trim() == 'useragent'
           ) {
-            var listarray = $.trim(settingentry[1])
+            var listarray = settingentry[1]
+              .trim()
               .replace(/(\[|\]|")/g, '')
               .split(',');
             if (
-              $.trim(settingentry[0]) == 'whiteList' &&
+              settingentry[0].trim() == 'whiteList' &&
               listarray.toString() != ''
             )
               localStorage['whiteList'] = JSON.stringify(listarray);
             else if (
-              $.trim(settingentry[0]) == 'blackList' &&
+              settingentry[0].trim() == 'blackList' &&
               listarray.toString() != ''
             )
               localStorage['blackList'] = JSON.stringify(listarray);
             else if (
-              $.trim(settingentry[0]) == 'useragent' &&
+              settingentry[0].trim() == 'useragent' &&
               listarray.toString() != ''
             )
               localStorage['useragent'] = JSON.stringify(listarray);
           } else
-            localStorage[$.trim(settingentry[0])] = $.trim(settingentry[1]);
+            localStorage[settingentry[0].trim()] = (
+              settingentry[1] ?? ''
+            ).trim();
         } else {
-          error += $.trim(settingentry[0]) + ', ';
+          error += (settingentry[0] ?? '').trim() + ', ';
         }
       }
     });
@@ -904,7 +960,7 @@ function settingsImport() {
 }
 
 function downloadtxt() {
-  var textToWrite = $('#settingsexport').val();
+  var textToWrite = getStringValueById('settingsexport');
   var textFileAsBlob = new Blob([textToWrite], { type: 'text/plain' });
   var fileNameToSaveAs = 'scriptsafe-settings-' + new Date().toJSON() + '.txt';
 
@@ -950,16 +1006,7 @@ function updateExport() {
     }
   }
 
-  $('#settingsexport').val($('#settingsexport').val().slice(0, -1));
-}
-
-/**
- * @param {string } value
- */
-// TODO: unused?
-function is_int(value) {
-  if (parseFloat(value) == parseInt(value) && !isNaN(value)) return true;
-  return false;
+  $('#settingsexport').val(getStringValueById('settingsexport').slice(0, -1));
 }
 
 /**
@@ -973,8 +1020,7 @@ function notification(msg) {
  * @param {NumericBool} type
  */
 async function addList(type) {
-  var domain = $('#url')
-    .val()
+  var domain = getStringValueById('url')
     .toLowerCase()
     .replace('http://', '')
     .replace('https://', '');
@@ -1043,8 +1089,7 @@ async function addFPList() {
     $(this).attr('id').substr(0, $(this).attr('id').indexOf('whitebind'))
   );
 
-  var domain = $('#' + elid + 'url')
-    .val()
+  var domain = getStringValueById(elid + 'url')
     .toLowerCase()
     .replace('http://', '')
     .replace('https://', '');
@@ -1240,9 +1285,11 @@ function bulk(type) {
  */
 async function importbulk(type) {
   var error = '';
-  var domains = $('#bulk textarea').val().split('\n');
 
-  if ($.trim($('#bulk textarea').val()) == '') {
+  const bulkVal = getStringValueBySelector('#bulk textarea');
+  var domains = bulkVal.split('\n');
+
+  if (bulkVal.trim() == '') {
     hidebulk();
     return false;
   }

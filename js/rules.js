@@ -1,3 +1,5 @@
+import { promisify0, promisify1 } from './common.js';
+
 const wildcardPrefix = '**.';
 
 const whitelistPriority = 1500;
@@ -11,25 +13,29 @@ function nextId() {
 }
 
 /**
+ * @type {AsyncFunc0<chrome.declarativeNetRequest.Rule[]>}
+ */
+const _getDynamicRules = promisify0(
+  chrome.declarativeNetRequest.getDynamicRules,
+);
+
+const _updateDynamicRules = promisify1(
+  chrome.declarativeNetRequest.updateDynamicRules,
+);
+
+/**
  * @param {string[]} whitelist
  * @param {string[]} blacklist
  * @param {string[] | undefined} sessionWhitelist
  * @param {string[] | undefined} sessionBlacklist
  */
-async function updateDynamicRules(
+export async function updateDynamicRules(
   whitelist,
   blacklist,
   sessionWhitelist = [],
   sessionBlacklist = [],
 ) {
-  /**
-   * @type {AsyncFunc0<chrome.declarativeNetRequest.Rule[]>}
-   */
-  const getDynamicRules = promisify0(
-    chrome.declarativeNetRequest.getDynamicRules,
-  );
-
-  const oldRules = await getDynamicRules();
+  const oldRules = await _getDynamicRules();
   const oldRuleIds = oldRules?.map((rule) => rule.id) ?? [];
 
   const newRules = buildDynamicRules(
@@ -45,20 +51,13 @@ async function updateDynamicRules(
     newRules,
   );
 
-  await promisify1(chrome.declarativeNetRequest.updateDynamicRules)({
+  await _updateDynamicRules({
     removeRuleIds: oldRuleIds,
     addRules: newRules,
   });
 
-  if (chrome.runtime.lastError) {
-    console.error(
-      'Failed to update dynamic rules: %o',
-      chrome.runtime.lastError,
-    );
-  } else {
-    const enabledRules = await getDynamicRules();
-    console.log('Updated dynamic rules. New rules: %o', enabledRules);
-  }
+  const enabledRules = await _getDynamicRules();
+  console.log('Updated dynamic rules. New rules: %o', enabledRules);
 }
 
 /**

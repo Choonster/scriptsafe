@@ -4,7 +4,7 @@
 
 ///@ts-check
 
-'use strict';
+export {};
 
 var version = '1.0.9.3';
 var bkg = /** @type {BackgroundWindow} */ (

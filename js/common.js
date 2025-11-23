@@ -4,7 +4,8 @@
 
 ///@ts-check
 
-'use strict';
+import { domainCheck } from './scriptsafe.js';
+import { antisocial1, antisocial2, yoyo1, yoyo2 } from './yoyo.js';
 
 /**
  * @param {string} src
@@ -13,7 +14,7 @@
  * @param {1 | 2} [lookupmode]
  * @returns {BaddiesResult}
  */
-function baddies(src, amode, antisocial, lookupmode) {
+export function baddies(src, amode, antisocial, lookupmode) {
   lookupmode = lookupmode || 1;
   var dmn = extractDomainFromURL(src);
   var topDomain = getDomain(dmn);
@@ -51,7 +52,7 @@ function baddies(src, amode, antisocial, lookupmode) {
  * @param {string} url
  * @param {string} [taburl]
  */
-function thirdParty(url, taburl) {
+export function thirdParty(url, taburl) {
   if (url) {
     var url = extractDomainFromURL(url);
     var documentHost;
@@ -101,7 +102,7 @@ function thirdParty(url, taburl) {
 /**
  * @param {string} url
  */
-function extractDomainFromURL(url) {
+export function extractDomainFromURL(url) {
   // credit: NotScripts
   if (!url) return '';
   if (url.indexOf('://') != -1) url = url.substr(url.indexOf('://') + 3);
@@ -119,7 +120,7 @@ function extractDomainFromURL(url) {
  * @param {string} url
  * @param {never} [type] // TODO: Unused?
  */
-function getDomain(url, type) {
+export function getDomain(url, type) {
   if (
     url &&
     !url.match(
@@ -159,7 +160,7 @@ function getDomain(url, type) {
  * @param {string} needle
  * @param {string[]} haystack
  */
-function in_array(needle, haystack) {
+export function in_array(needle, haystack) {
   if (!haystack || !needle) return false;
   if (needle.indexOf('www.') == 0) needle = needle.substring(4);
   if (binarySearch(haystack, needle) != -1) return 1;
@@ -190,7 +191,7 @@ function in_array(needle, haystack) {
  * @param {string[]} list
  * @param {string} item
  */
-function binarySearch(list, item) {
+export function binarySearch(list, item) {
   var min = 0;
   var max = list.length - 1;
   var guess;
@@ -228,7 +229,7 @@ function binarySearch(list, item) {
 /**
  * @param {string | number | undefined} input
  */
-function parseIntOptional(input) {
+export function parseIntOptional(input) {
   if (typeof input === 'number') {
     return input;
   } else if (typeof input !== 'string') {
@@ -238,4 +239,51 @@ function parseIntOptional(input) {
   const value = parseInt(input);
 
   return value;
+}
+
+// TODO: Remove promisify functions after updating to Manifest V3.
+
+/**
+ * @template Result
+ * @param {CallbackFunc0<Result>} func
+ * @returns {AsyncFunc0<Result>}
+ */
+export function promisify0(func) {
+  return () =>
+    new Promise((resolve, reject) => {
+      func((result) => {
+        if (chrome.runtime.lastError) {
+          const error = new Error('WebExtension API call failed', {
+            cause: chrome.runtime.lastError,
+          });
+          reject(error);
+          return;
+        }
+
+        resolve(result);
+      });
+    });
+}
+
+/**
+ * @template Param
+ * @template Result
+ * @param {CallbackFunc1<Param, Result>} func
+ * @returns {AsyncFunc1<Param, Result>}
+ */
+export function promisify1(func) {
+  return (param) =>
+    new Promise((resolve, reject) => {
+      func(param, (result) => {
+        if (chrome.runtime.lastError) {
+          const error = new Error('WebExtension API call failed', {
+            cause: chrome.runtime.lastError,
+          });
+          reject(error);
+          return;
+        }
+
+        return resolve(result);
+      });
+    });
 }

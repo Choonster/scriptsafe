@@ -2,7 +2,8 @@
 // Distributed under the terms of the GNU General Public License
 // The GNU General Public License can be found in the gpl.txt file. Alternatively, see <http://www.gnu.org/licenses/>.
 
-'use strict';
+import { parseIntOptional } from './common.js';
+import './sticky-scroll.js';
 
 var version = '1.0.9.4';
 var bkg = /** @type {BackgroundWindow} */ (

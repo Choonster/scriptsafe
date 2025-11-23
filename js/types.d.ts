@@ -418,6 +418,7 @@ declare interface BackgroundWindow extends Window {
   getWebRTC(): boolean;
   refreshRequestTypes(): void;
   initWebRTC(): void;
+  testWebRTC(rtcstatus: boolean): void;
   reinitContext(): void;
   initLang(lang: string, mode: NumericBool): void;
   cacheLists(): void;

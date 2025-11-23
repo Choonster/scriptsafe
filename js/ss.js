@@ -2,6 +2,10 @@
 // Distributed under the terms of the GNU General Public License
 // The GNU General Public License can be found in the gpl.txt file. Alternatively, see <http://www.gnu.org/licenses/>.
 
+import { baddies, extractDomainFromURL, in_array, thirdParty } from './common';
+
+export {};
+
 // TODO: beforeload seems to be Safari-specific and may or may not work any more, it was removed from Chrome in 2014:
 // https://issues.chromium.org/issues/41083119
 /** @type {Event[]} */

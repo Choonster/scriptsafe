@@ -2,7 +2,9 @@
 // Distributed under the terms of the GNU General Public License
 // The GNU General Public License can be found in the gpl.txt file. Alternatively, see <http://www.gnu.org/licenses/>.
 
-var bkg = chrome.extension.getBackgroundPage();
+export {};
+
+var bkg = /**@type {BackgroundWindow} */ (chrome.extension.getBackgroundPage());
 
 document.addEventListener('DOMContentLoaded', function () {
   var version = '1.0.9.3';

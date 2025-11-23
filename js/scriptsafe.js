@@ -7,6 +7,21 @@
 
 'use strict';
 
+import {
+  baddies,
+  extractDomainFromURL,
+  getDomain,
+  in_array,
+  parseIntOptional,
+  promisify1,
+  thirdParty,
+} from './common.js';
+import { updateDynamicRules } from './rules.js';
+
+export { baddies, extractDomainFromURL, in_array };
+
+const _tabsQuery = promisify1(chrome.tabs.query);
+
 var version = '1.0.9.3';
 
 var requestTypes,
@@ -97,36 +112,7 @@ var webrtcsupport = false;
 var updated = false;
 var userAgent = '';
 
-// TODO: Remove promisify functions after updating to Manifest V3.
-
-/**
- * @template Result
- * @param {CallbackFunc0<Result>} func
- * @returns {AsyncFunc0<Result>}
- */
-function promisify0(func) {
-  return function () {
-    return new Promise((resolve) => {
-      func((result) => resolve(result));
-    });
-  };
-}
-
-/**
- * @template Param
- * @template Result
- * @param {CallbackFunc1<Param, Result>} func
- * @returns {AsyncFunc1<Param,Result>}
- */
-function promisify1(func) {
-  return function (param) {
-    return new Promise((resolve) => {
-      func(param, (result) => resolve(result));
-    });
-  };
-}
-
-function refreshRequestTypes() {
+export function refreshRequestTypes() {
   clearRecents();
   genUserAgent(1);
   requestTypes = ['main_frame'];
@@ -141,7 +127,7 @@ function refreshRequestTypes() {
     requestTypes.push('xmlhttprequest');
 }
 
-function initWebRTC() {
+export function initWebRTC() {
   if (!webrtcsupport) return;
   if (localStorage['webrtc'] != 'off') {
     chrome.privacy.network.webRTCIPHandlingPolicy.set({
@@ -154,17 +140,19 @@ function initWebRTC() {
   }
 }
 
-function getWebRTC() {
+export function getWebRTC() {
   return webrtcsupport;
 }
 
 /**
  * @param {boolean} rtcstatus
  */
-function testWebRTC(rtcstatus) {
+export function testWebRTC(rtcstatus) {
   document.getElementById('webrtc').remove();
   webrtcsupport = rtcstatus;
 }
+
+globalThis['testWebRTC'] = testWebRTC;
 
 function checkWebRTC() {
   if (typeof chrome.privacy.network.webRTCIPHandlingPolicy === 'undefined')
@@ -172,9 +160,12 @@ function checkWebRTC() {
 
   var doc = /** @type {HTMLIFrameElement} */ (document.getElementById('webrtc'))
     .contentWindow.document;
-  doc.open();
-  doc.write('<script src="../js/webrtctest.js"></script>');
-  doc.close();
+
+  const script = doc.createElement('script');
+  script.type = 'module';
+  script.src = '../js/webrtctest.js';
+
+  doc.body.append(script);
 }
 
 async function updateRules() {
@@ -837,12 +828,12 @@ function setRecents(list) {
 /**
  * @param {RecentList} list
  */
-function getRecents(list) {
+export function getRecents(list) {
   setRecents(list);
   return JSON.stringify(recentlog[list]);
 }
 
-function clearRecents() {
+export function clearRecents() {
   recentlog['allowed'] = [];
   recentlog['blocked'] = [];
 }
@@ -944,7 +935,7 @@ function enabledfp(domainname, fptype) {
  * @param {1| 2} [req]
  * @returns {DomainCheckResult}
  */
-function domainCheck(domain, req) {
+export function domainCheck(domain, req) {
   if (req === undefined) {
     var baddiesCheck = baddies(
       domain,
@@ -992,7 +983,7 @@ function domainCheck(domain, req) {
  * @param {AllowedEntry[] | BlockedEntry[] | string[]} hosts
  * @returns {HostsList | string[]}
  */
-function domainSort(hosts) {
+export function domainSort(hosts) {
   if (hosts.length > 0) {
     if (typeof hosts[0] === 'object') {
       const objectHosts = /** @type {AllowedEntry[] | BlockedEntry[]} */ (
@@ -1060,7 +1051,7 @@ function domainSort(hosts) {
 /**
  * @param {string} domain
  */
-function trustCheck(domain) {
+export function trustCheck(domain) {
   if (in_array(domain, trustList)) return 1;
   if (in_array(domain, distrustList)) return 2;
   return false;
@@ -1070,7 +1061,7 @@ function trustCheck(domain) {
  * @param {string} domain
  * @param {NumericBool | FingerprintType} mode
  */
-async function topHandler(domain, mode) {
+export async function topHandler(domain, mode) {
   if (domain) {
     if (
       !domain.match(
@@ -1113,7 +1104,7 @@ function haystackSearch(needle, haystack) {
  * @param {HandlerAction} action
  * @param {EnumListType} [listtype]
  */
-async function domainHandler(domain, action, listtype) {
+export async function domainHandler(domain, action, listtype) {
   if (listtype === undefined) listtype = 0;
   if (domain) {
     action =
@@ -1260,7 +1251,7 @@ async function domainHandler(domain, action, listtype) {
  * @param {HandlerAction} action
  * @param {EnumListType} [temp]
  */
-function fpDomainHandler(domain, listtype, action, temp) {
+export function fpDomainHandler(domain, listtype, action, temp) {
   if (temp === undefined) temp = 0;
   if (domain) {
     action =
@@ -1365,7 +1356,7 @@ function defaultOptionValue(opt, val) {
 /**
  * @param {1 | 2} [force]
  */
-function setDefaultOptions(force) {
+export function setDefaultOptions(force) {
   /**
    * @type {Settings}
    */
@@ -1601,7 +1592,7 @@ function resetTabData(id, url) {
   }
 }
 
-function revokeTemp() {
+export function revokeTemp() {
   sessionBlackList = [];
   sessionWhiteList = [];
   fpListsSession = {};
@@ -1624,7 +1615,7 @@ function revokeTemp() {
 /**
  * @param {number} duration
  */
-function statuschanger(duration) {
+export function statuschanger(duration) {
   window.clearTimeout(reenabletimer);
   if (localStorage['enable'] == 'true') {
     localStorage['enable'] = 'false';
@@ -1718,7 +1709,7 @@ function getSessionList() {
 /**
  * @param {string} domain
  */
-function checkTemp(domain) {
+export function checkTemp(domain) {
   return in_array(domain, getSessionList());
 }
 
@@ -2214,7 +2205,7 @@ chrome.commands.onCommand.addListener(async function (command) {
   }
 });
 
-function reinitContext() {
+export function reinitContext() {
   chrome.contextMenus.removeAll(function () {
     if (localStorage['showcontext'] == 'true') {
       genContextMenu();
@@ -2333,7 +2324,7 @@ function genContextMenu() {
  * @param {ContextMode} mode
  */
 async function contextHandle(mode) {
-  const tabs = await promisify1(chrome.tabs.query)({
+  const tabs = await _tabsQuery({
     active: true,
     currentWindow: true,
   });
@@ -2373,7 +2364,7 @@ async function contextHandle(mode) {
 }
 
 async function tempPage() {
-  const tabs = await promisify1(chrome.tabs.query)({
+  const tabs = _tabsQuery({
     active: true,
     currentWindow: true,
   });
@@ -2408,7 +2399,7 @@ async function tempPage() {
 }
 
 async function removeTempPage() {
-  const tabs = await promisify1(chrome.tabs.query)({
+  const tabs = _tabsQuery({
     active: true,
     currentWindow: true,
   });
@@ -2485,20 +2476,24 @@ async function dataUrlToBytes(dataUrl) {
  * @param {string} str
  */
 async function ssCompress(str) {
-  return await bytesToBase64DataUrl(pako.deflate(str));
+  // @ts-ignore
+  const deflated = pako.deflate(str);
+  return await bytesToBase64DataUrl(deflated);
 }
 
 /**
  * @param {string} str
  */
 async function ssDecompress(str) {
-  return pako.inflate(await dataUrlToBytes(str), { to: 'string' });
+  const data = await dataUrlToBytes(str);
+  // @ts-ignore
+  return pako.inflate(data, { to: 'string' });
 }
 
 /**
  * @param {boolean} [force]
  */
-async function freshSync(force) {
+export async function freshSync(force) {
   if (storageapi && localStorage['syncenable'] == 'true') {
     window.clearTimeout(synctimer);
     if (force) {
@@ -2715,7 +2710,7 @@ async function syncQueue() {
 /**
  * @param {NumericBool} mode
  */
-function importSyncHandle(mode) {
+export function importSyncHandle(mode) {
   if (storageapi) {
     if (
       mode == 1 ||
@@ -2798,7 +2793,7 @@ async function importSync(changes) {
     }
   }
 
-  initLang(localStorage['locale'], 0);
+  await initLang(localStorage['locale'], 0);
 
   await listsSync();
 }
@@ -2922,15 +2917,15 @@ async function listsSyncParse(type) {
   }
 }
 
-function getUpdated() {
+export function getUpdated() {
   return updated;
 }
 
-function setUpdated() {
+export function setUpdated() {
   updated = false;
 }
 
-async function triggerUpdated() {
+export async function triggerUpdated() {
   updated = true;
   await freshSync();
 }
@@ -2943,7 +2938,7 @@ function init() {
   if (localStorage['showcontext'] == 'true') genContextMenu();
 }
 
-function cacheLists() {
+export function cacheLists() {
   var tempList = JSON.parse(localStorage['whiteList']);
   var tempDomain = [];
   var tempWildDomain = [];
@@ -2968,7 +2963,7 @@ function cacheLists() {
   distrustList = tempWildDomain;
 }
 
-function cacheFpLists() {
+export function cacheFpLists() {
   for (var i in fpTypes) {
     var tempList = JSON.parse(localStorage[fpTypes[i]]);
     var tempDomain = [];
@@ -2984,36 +2979,31 @@ function cacheFpLists() {
  * @param {string} lang
  * @param {NumericBool} mode
  */
-function initLang(lang, mode) {
+export async function initLang(lang, mode) {
   var url = chrome.extension.getURL('_locales/' + lang + '/messages.json');
-  $.ajax({
-    url: url,
-    dataType: 'json',
-    async: true,
-    success: async function (data) {
-      locale = data;
-      if (mode == 1) {
-        await postLangLoad();
-      } else {
-        reinitContext();
-      }
-    },
-    error: async function () {
-      locale = false;
-      if (mode == 1) {
-        await postLangLoad();
-      } else {
-        reinitContext();
-      }
-    },
-  });
+
+  try {
+    locale = await $.ajax({
+      url: url,
+      dataType: 'json',
+      async: true,
+    });
+  } catch {
+    locale = false;
+  }
+
+  if (mode == 1) {
+    await postLangLoad();
+  } else {
+    reinitContext();
+  }
 }
 
 /**
  * @param {string} str
  * @returns {string}
  */
-function getLocale(str) {
+export function getLocale(str) {
   if (locale) {
     if (typeof locale[str] === 'undefined') return chrome.i18n.getMessage(str);
     return locale[str].message;
@@ -3022,7 +3012,7 @@ function getLocale(str) {
   }
 }
 
-function getLangs() {
+export function getLangs() {
   return langs;
 }
 
@@ -3050,7 +3040,7 @@ if (!optionExists('locale')) {
   }
 }
 
-initLang(localStorage['locale'], 1);
+await initLang(localStorage['locale'], 1);
 
 async function postLangLoad() {
   if (!optionExists('version') || localStorage['version'] != version) {

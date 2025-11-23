@@ -1,3 +1,5 @@
+export {};
+
 (function (t) {
   t.fn.stickyScroll = function (o) {
     var e = {

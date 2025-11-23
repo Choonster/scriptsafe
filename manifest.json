@@ -33,8 +33,6 @@
          "all_frames": true,
          "js": [
             "js/jquery.js",
-            "js/common.js",
-            "js/yoyo.js",
             "js/ss.js"
          ],
          "matches": [

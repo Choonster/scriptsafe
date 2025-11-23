@@ -97,6 +97,35 @@ var webrtcsupport = false;
 var updated = false;
 var userAgent = '';
 
+// TODO: Remove promisify functions after updating to Manifest V3.
+
+/**
+ * @template Result
+ * @param {CallbackFunc0<Result>} func
+ * @returns {AsyncFunc0<Result>}
+ */
+function promisify0(func) {
+  return function () {
+    return new Promise((resolve) => {
+      func((result) => resolve(result));
+    });
+  };
+}
+
+/**
+ * @template Param
+ * @template Result
+ * @param {CallbackFunc1<Param, Result>} func
+ * @returns {AsyncFunc1<Param,Result>}
+ */
+function promisify1(func) {
+  return function (param) {
+    return new Promise((resolve) => {
+      func(param, (result) => resolve(result));
+    });
+  };
+}
+
 function refreshRequestTypes() {
   clearRecents();
   genUserAgent(1);
@@ -146,6 +175,15 @@ function checkWebRTC() {
   doc.open();
   doc.write('<script src="../js/webrtctest.js"></script>');
   doc.close();
+}
+
+async function updateRules() {
+  await updateDynamicRules(
+    whiteList,
+    blackList,
+    sessionWhiteList,
+    sessionBlackList,
+  );
 }
 
 /**
@@ -472,10 +510,15 @@ function inlineblock(req) {
       localStorage['script'] == 'true' &&
       enabled(req.url) == 'true'
     ) {
-      headers.push({
-        name: 'Content-Security-Policy',
-        value: "script-src 'none'",
-      });
+      console.log(
+        'inlineblock: Request is main_frame, setting CSP for %o',
+        req.url,
+      );
+      // TODO: Disabled legacy blocking
+      // headers.push({
+      //   name: 'Content-Security-Policy',
+      //   value: "script-src 'none'",
+      // });
       recentlog['blocked'].push([
         new Date().getTime(),
         req.url,
@@ -620,8 +663,31 @@ function ScriptSafe(req) {
   ) {
     // request qualified for filtering, so continue.
   } else {
-    if (utmCleanURL) return { redirectUrl: utmCleanURL };
-    if (hashCleanURL) return { redirectUrl: hashCleanURL };
+    if (utmCleanURL) {
+      console.log(
+        'ScriptSafe: Have utmCleanURL, redirecting from %o to %o',
+        req.url,
+        utmCleanURL,
+      );
+
+      return { redirectUrl: utmCleanURL };
+    }
+
+    if (hashCleanURL) {
+      console.log(
+        'ScriptSafe: Have hashCleanURL, redirecting from %o to %o',
+        req.url,
+        hashCleanURL,
+      );
+
+      return { redirectUrl: hashCleanURL };
+    }
+
+    console.log(
+      "ScriptSafe: Request didn't qualify for filtering, not blocking %o",
+      req.url,
+    );
+
     return { cancel: false };
   }
 
@@ -632,8 +698,10 @@ function ScriptSafe(req) {
       (thirdPartyCheck || domainCheckStatus == 1 || baddiesCheck)) ||
       localStorage['preservesamedomain'] == 'false')
   ) {
-    if (typeof ITEMS[req.tabId]['blocked'] === 'undefined')
+    if (typeof ITEMS[req.tabId]['blocked'] === 'undefined') {
       ITEMS[req.tabId]['blocked'] = [];
+    }
+
     if (!UrlInList(cleanedUrl, ITEMS[req.tabId]['blocked'])) {
       if (extractedReqDomain.substr(0, 4) == 'www.')
         extractedReqDomain = extractedReqDomain.substr(4);
@@ -660,18 +728,42 @@ function ScriptSafe(req) {
       updateRecents('blocked');
       updateCount(req.tabId);
     }
+
     if (reqtype == 'frame') {
-      return { redirectUrl: 'about:blank' };
+      const redirectUrl = 'about:blank';
+
+      console.log(
+        'ScriptSafe: Request is frame, redirecting from %o to %o',
+        req.url,
+        redirectUrl,
+      );
+
+      return { redirectUrl: redirectUrl };
     } else if (reqtype == 'webbug' || reqtype == 'image') {
+      const redirectUrl =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==';
+
+      console.log(
+        'ScriptSafe: Request is webbug or image, redirecting from %o to %o',
+        req.url,
+        redirectUrl,
+      );
+
       return {
-        redirectUrl:
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==',
+        redirectUrl: redirectUrl,
       };
     }
-    return { cancel: true };
+
+    console.log(
+      'ScriptSafe: Request is not frame, webbug or image, blocking %o',
+      req.url,
+    );
+    return { cancel: false }; // TODO: Disabled legacy blocking
   } else {
-    if (typeof ITEMS[req.tabId]['allowed'] === 'undefined')
+    if (typeof ITEMS[req.tabId]['allowed'] === 'undefined') {
       ITEMS[req.tabId]['allowed'] = [];
+    }
+
     if (!UrlInList(cleanedUrl, ITEMS[req.tabId]['allowed'])) {
       if (extractedReqDomain.substr(0, 4) == 'www.')
         extractedReqDomain = extractedReqDomain.substr(4);
@@ -694,8 +786,29 @@ function ScriptSafe(req) {
       updateRecents('allowed');
     }
   }
-  if (utmCleanURL) return { redirectUrl: utmCleanURL };
-  if (hashCleanURL) return { redirectUrl: hashCleanURL };
+
+  if (utmCleanURL) {
+    console.log(
+      'ScriptSafe: Have utmCleanURL, redirecting from %o to %o',
+      req.url,
+      utmCleanURL,
+    );
+
+    return { redirectUrl: utmCleanURL };
+  }
+
+  if (hashCleanURL) {
+    console.log(
+      'ScriptSafe: Have hashCleanURL, redirecting from %o to %o',
+      req.url,
+      hashCleanURL,
+    );
+
+    return { redirectUrl: hashCleanURL };
+  }
+
+  console.log('ScriptSafe: Request was allowed, not blocking %o', req.url);
+
   return { cancel: false };
 }
 
@@ -957,17 +1070,23 @@ function trustCheck(domain) {
  * @param {string} domain
  * @param {NumericBool | FingerprintType} mode
  */
-function topHandler(domain, mode) {
+async function topHandler(domain, mode) {
   if (domain) {
     if (
       !domain.match(
         /^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})$/g,
       ) &&
       !domain.match(/^(?:\[[A-Fa-f0-9:.]+\])(:[0-9]+)?$/g)
-    )
+    ) {
       domain = '**.' + getDomain(domain);
-    if (mode != 0 && mode != 1) fpDomainHandler(domain, mode, 1);
-    else domainHandler(domain, mode);
+    }
+
+    if (mode != 0 && mode != 1) {
+      fpDomainHandler(domain, mode, 1);
+    } else {
+      await domainHandler(domain, mode);
+    }
+
     changed = true;
     return true;
   }
@@ -994,7 +1113,7 @@ function haystackSearch(needle, haystack) {
  * @param {HandlerAction} action
  * @param {EnumListType} [listtype]
  */
-function domainHandler(domain, action, listtype) {
+async function domainHandler(domain, action, listtype) {
   if (listtype === undefined) listtype = 0;
   if (domain) {
     action =
@@ -1127,6 +1246,9 @@ function domainHandler(domain, action, listtype) {
       sessionBlackList = tempBlacklist;
     }
     clearRecents();
+
+    await updateRules();
+
     return true;
   }
   return false;
@@ -1523,7 +1645,7 @@ function statuschanger(duration) {
 /**
  * @param {TempRequest} request
  */
-function tempHandler(request) {
+async function tempHandler(request) {
   if (typeof request.url === 'object') {
     for (var i = 0, forcount = request.url.length; i < forcount; i++) {
       if (request.url[i][0] != 'no.script' && request.url[i][0] != 'web.bug') {
@@ -1540,8 +1662,11 @@ function tempHandler(request) {
         ) {
           // do nothing
         } else {
-          if (request.mode == 'block') domainHandler(request.url[i], 0, 1);
-          else domainHandler(request.url[i], 1, 1);
+          if (request.mode == 'block') {
+            await domainHandler(request.url[i], 0, 1);
+          } else {
+            await domainHandler(request.url[i], 1, 1);
+          }
         }
       }
     }
@@ -1559,24 +1684,29 @@ function tempHandler(request) {
     ) {
       // do nothing
     } else {
-      if (request.mode == 'block') domainHandler(request.url, 0, 1);
-      else domainHandler(request.url, 1, 1);
+      if (request.mode == 'block') {
+        await domainHandler(request.url, 0, 1);
+      } else {
+        await domainHandler(request.url, 1, 1);
+      }
     }
   }
+
   changed = true;
 }
 
 /**
  * @param {RemoveTempRequest} request
  */
-function removeTempHandler(request) {
+async function removeTempHandler(request) {
   if (typeof request.url === 'object') {
     for (var i = 0, forcount = request.url.length; i < forcount; i++) {
-      domainHandler(request.url[i], 2, 1);
+      await domainHandler(request.url[i], 2, 1);
     }
   } else {
-    domainHandler(request.url, 2, 1);
+    await domainHandler(request.url, 2, 1);
   }
+
   changed = true;
 }
 
@@ -1692,7 +1822,7 @@ chrome.runtime.onMessage.addListener(
    * @param {chrome.runtime.MessageSender} sender
    * @param {(response: never) => void} sendResponse
    */
-  function (request, sender, sendResponse) {
+  async function (request, sender, sendResponse) {
     if (request.reqtype == 'get-settings') {
       /** @type {FingerprintEnabledType[]} */
       var fpListStatus = [];
@@ -2031,12 +2161,12 @@ chrome.runtime.onMessage.addListener(
         }
       }
     } else if (request.reqtype == 'save') {
-      domainHandler(request.url, request.list);
+      await domainHandler(request.url, request.list);
       changed = true;
     } else if (request.reqtype == 'temp') {
-      tempHandler(request);
+      await tempHandler(request);
     } else if (request.reqtype == 'remove-temp') {
-      removeTempHandler(request);
+      await removeTempHandler(request);
     } else if (request.reqtype == 'save-fp') {
       fpDomainHandler(request.url, request.list, 1);
       changed = true;
@@ -2074,11 +2204,11 @@ chrome.runtime.onUpdateAvailable.addListener(function (details) {
   // do nothing, wait for user to reload browser before updating.
 });
 
-chrome.commands.onCommand.addListener(function (command) {
+chrome.commands.onCommand.addListener(async function (command) {
   if (command === 'temppage') {
-    tempPage();
+    await tempPage();
   } else if (command === 'removetemppage') {
-    removeTempPage();
+    await removeTempPage();
   } else if (command === 'removetempall') {
     removeTempAll();
   }
@@ -2086,7 +2216,9 @@ chrome.commands.onCommand.addListener(function (command) {
 
 function reinitContext() {
   chrome.contextMenus.removeAll(function () {
-    if (localStorage['showcontext'] == 'true') genContextMenu();
+    if (localStorage['showcontext'] == 'true') {
+      genContextMenu();
+    }
   });
 }
 
@@ -2099,15 +2231,15 @@ function genContextMenu() {
     chrome.contextMenus.create({
       title: getLocale('allow'),
       parentId: parent,
-      onclick: function () {
-        contextHandle('allow');
+      onclick: async function () {
+        await contextHandle('allow');
       },
     });
     chrome.contextMenus.create({
       title: getLocale('allow') + ' (' + getLocale('temp') + ')',
       parentId: parent,
-      onclick: function () {
-        contextHandle('allowtemp');
+      onclick: async function () {
+        await contextHandle('allowtemp');
       },
     });
     chrome.contextMenus.create({
@@ -2118,23 +2250,23 @@ function genContextMenu() {
     chrome.contextMenus.create({
       title: getLocale('trust'),
       parentId: parent,
-      onclick: function () {
-        contextHandle('trust');
+      onclick: async function () {
+        await contextHandle('trust');
       },
     });
   } else {
     chrome.contextMenus.create({
       title: getLocale('deny'),
       parentId: parent,
-      onclick: function () {
-        contextHandle('block');
+      onclick: async function () {
+        await contextHandle('block');
       },
     });
     chrome.contextMenus.create({
       title: getLocale('deny') + ' (' + getLocale('temp') + ')',
       parentId: parent,
-      onclick: function () {
-        contextHandle('blocktemp');
+      onclick: async function () {
+        await contextHandle('blocktemp');
       },
     });
     chrome.contextMenus.create({
@@ -2145,8 +2277,8 @@ function genContextMenu() {
     chrome.contextMenus.create({
       title: getLocale('distrust'),
       parentId: parent,
-      onclick: function () {
-        contextHandle('distrust');
+      onclick: async function () {
+        await contextHandle('distrust');
       },
     });
   }
@@ -2154,8 +2286,8 @@ function genContextMenu() {
   chrome.contextMenus.create({
     title: getLocale('clear'),
     parentId: parent,
-    onclick: function () {
-      contextHandle('clear');
+    onclick: async function () {
+      await contextHandle('clear');
     },
   });
   chrome.contextMenus.create({
@@ -2176,122 +2308,142 @@ function genContextMenu() {
       chrome.tabs.create({ url: chrome.extension.getURL('html/options.html') });
     },
   });
-  if (localStorage['enable'] == 'false')
+  if (localStorage['enable'] == 'false') {
     chrome.contextMenus.create({
       title: getLocale('enabless'),
       parentId: parent,
-      onclick: function () {
+      onclick: async function () {
         localStorage['enable'] = 'true';
-        contextHandle('toggle');
+        await contextHandle('toggle');
       },
     });
-  else
+  } else {
     chrome.contextMenus.create({
       title: getLocale('disable'),
       parentId: parent,
-      onclick: function () {
+      onclick: async function () {
         localStorage['enable'] = 'false';
-        contextHandle('toggle');
+        await contextHandle('toggle');
       },
     });
+  }
 }
 
 /**
  * @param {ContextMode} mode
  */
-function contextHandle(mode) {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    if (tabs[0].url.indexOf('http') == 0) {
-      var tabdomain = extractDomainFromURL(tabs[0].url);
-      var domainCheckStatus = domainCheck(tabs[0].url);
-      if (mode == 'allow') {
-        domainHandler(tabdomain, 2, 1);
-        domainHandler(tabdomain, 0);
-      } else if (mode == 'block') {
-        domainHandler(tabdomain, 2, 1);
-        domainHandler(tabdomain, 1);
-      } else if (mode == 'allowtemp' && domainCheckStatus == -1)
-        tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'block' });
-      else if (mode == 'blocktemp' && domainCheckStatus == -1)
-        tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'allow' });
-      else if (mode == 'trust') topHandler(tabdomain, 0);
-      else if (mode == 'distrust') topHandler(tabdomain, 1);
-      else if (mode == 'clear') {
-        if (trustCheck(tabdomain))
-          domainHandler('**.' + getDomain(tabdomain), 2);
-        else {
-          domainHandler(tabdomain, 2, 1);
-          domainHandler(tabdomain, 2);
-        }
-      } else if (mode == 'toggle') reinitContext();
-      if (localStorage['refresh'] == 'true') chrome.tabs.reload(tabs[0].id);
-    }
+async function contextHandle(mode) {
+  const tabs = await promisify1(chrome.tabs.query)({
+    active: true,
+    currentWindow: true,
   });
+
+  if (tabs[0].url.indexOf('http') == 0) {
+    var tabdomain = extractDomainFromURL(tabs[0].url);
+    var domainCheckStatus = domainCheck(tabs[0].url);
+    if (mode == 'allow') {
+      await domainHandler(tabdomain, 2, 1);
+      await domainHandler(tabdomain, 0);
+    } else if (mode == 'block') {
+      await domainHandler(tabdomain, 2, 1);
+      await domainHandler(tabdomain, 1);
+    } else if (mode == 'allowtemp' && domainCheckStatus == -1)
+      await tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'block' });
+    else if (mode == 'blocktemp' && domainCheckStatus == -1)
+      await tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'allow' });
+    else if (mode == 'trust') {
+      await topHandler(tabdomain, 0);
+    } else if (mode == 'distrust') {
+      await topHandler(tabdomain, 1);
+    } else if (mode == 'clear') {
+      if (trustCheck(tabdomain)) {
+        await domainHandler('**.' + getDomain(tabdomain), 2);
+      } else {
+        await domainHandler(tabdomain, 2, 1);
+        await domainHandler(tabdomain, 2);
+      }
+    } else if (mode == 'toggle') {
+      reinitContext();
+    }
+
+    if (localStorage['refresh'] == 'true') {
+      chrome.tabs.reload(tabs[0].id);
+    }
+  }
 }
 
-function tempPage() {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    /** @type {Mode} */ var tempMode = localStorage['mode'];
-    const tempKey = /** @type {ItemsEntryKey} */ (tempMode + 'ed');
-
-    if (typeof ITEMS[tabs[0].id][tempKey] === 'undefined') return;
-
-    /** @type {string[]} */
-    var tempDomainList = [];
-    if (domainCheck(tabs[0].url, 2) == -1) {
-      if (
-        (tempMode == 'block' && enabled(tabs[0].url) == 'true') ||
-        (tempMode == 'allow' && enabled(tabs[0].url) == 'false')
-      )
-        tempDomainList.push(extractDomainFromURL(tabs[0].url));
-    }
-
-    ITEMS[tabs[0].id][tempKey].map(
-      function (
-        /** @type { (ItemsEntry['allowed'] | ItemsEntry['blocked'])[0]} */ items,
-      ) {
-        if (items[3] == -1) tempDomainList.push(items[2]);
-      },
-    );
-
-    tempHandler({ reqtype: 'temp', url: tempDomainList, mode: tempMode });
-    if (localStorage['refresh'] == 'true') chrome.tabs.reload(tabs[0].id);
+async function tempPage() {
+  const tabs = await promisify1(chrome.tabs.query)({
+    active: true,
+    currentWindow: true,
   });
+
+  /** @type {Mode} */ var tempMode = localStorage['mode'];
+  const tempKey = /** @type {ItemsEntryKey} */ (tempMode + 'ed');
+
+  if (typeof ITEMS[tabs[0].id][tempKey] === 'undefined') return;
+
+  /** @type {string[]} */
+  var tempDomainList = [];
+  if (domainCheck(tabs[0].url, 2) == -1) {
+    if (
+      (tempMode == 'block' && enabled(tabs[0].url) == 'true') ||
+      (tempMode == 'allow' && enabled(tabs[0].url) == 'false')
+    )
+      tempDomainList.push(extractDomainFromURL(tabs[0].url));
+  }
+
+  ITEMS[tabs[0].id][tempKey].map(
+    function (
+      /** @type { (ItemsEntry['allowed'] | ItemsEntry['blocked'])[0]} */ items,
+    ) {
+      if (items[3] == -1) tempDomainList.push(items[2]);
+    },
+  );
+
+  await tempHandler({ reqtype: 'temp', url: tempDomainList, mode: tempMode });
+  if (localStorage['refresh'] == 'true') {
+    chrome.tabs.reload(tabs[0].id);
+  }
 }
 
-function removeTempPage() {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    /** @type {Mode} */
-    var tempMode;
-    if (localStorage['mode'] == 'block') tempMode = 'allow';
-    else tempMode = 'block';
-
-    const tempKey = /** @type {ItemsEntryKey} */ (tempMode + 'ed');
-
-    if (typeof ITEMS[tabs[0].id][tempKey] === 'undefined') return;
-
-    /** @type {string[]} */
-    var tempDomainList = [];
-    if (domainCheck(tabs[0].url, 2) == -1) {
-      if (
-        (tempMode == 'block' && enabled(tabs[0].url) == 'true') ||
-        (tempMode == 'allow' && enabled(tabs[0].url) == 'false')
-      )
-        tempDomainList.push(extractDomainFromURL(tabs[0].url));
-    }
-
-    ITEMS[tabs[0].id][tempKey].map(
-      function (
-        /** @type { (ItemsEntry['allowed'] | ItemsEntry['blocked'])[0]} */ items,
-      ) {
-        tempDomainList.push(items[2]);
-      },
-    );
-
-    removeTempHandler({ reqtype: 'remove-temp', url: tempDomainList });
-
-    if (localStorage['refresh'] == 'true') chrome.tabs.reload(tabs[0].id);
+async function removeTempPage() {
+  const tabs = await promisify1(chrome.tabs.query)({
+    active: true,
+    currentWindow: true,
   });
+  /** @type {Mode} */
+  var tempMode;
+  if (localStorage['mode'] == 'block') tempMode = 'allow';
+  else tempMode = 'block';
+
+  const tempKey = /** @type {ItemsEntryKey} */ (tempMode + 'ed');
+
+  if (typeof ITEMS[tabs[0].id][tempKey] === 'undefined') return;
+
+  /** @type {string[]} */
+  var tempDomainList = [];
+  if (domainCheck(tabs[0].url, 2) == -1) {
+    if (
+      (tempMode == 'block' && enabled(tabs[0].url) == 'true') ||
+      (tempMode == 'allow' && enabled(tabs[0].url) == 'false')
+    )
+      tempDomainList.push(extractDomainFromURL(tabs[0].url));
+  }
+
+  ITEMS[tabs[0].id][tempKey].map(
+    function (
+      /** @type { (ItemsEntry['allowed'] | ItemsEntry['blocked'])[0]} */ items,
+    ) {
+      tempDomainList.push(items[2]);
+    },
+  );
+
+  await removeTempHandler({ reqtype: 'remove-temp', url: tempDomainList });
+
+  if (localStorage['refresh'] == 'true') {
+    chrome.tabs.reload(tabs[0].id);
+  }
 }
 
 function removeTempAll() {
@@ -2572,7 +2724,7 @@ function importSyncHandle(mode) {
     ) {
       window.clearTimeout(synctimer);
       chrome.storage.sync.get(null, async function (changes) {
-        if (typeof changes['lastSync'] !== 'undefined') {
+        if (changes && typeof changes['lastSync'] !== 'undefined') {
           if (
             (mode == 0 && changes['lastSync'] > localStorage['lastSync']) ||
             (mode == 1 && changes['lastSync'] >= localStorage['lastSync'])
@@ -2838,15 +2990,21 @@ function initLang(lang, mode) {
     url: url,
     dataType: 'json',
     async: true,
-    success: function (data) {
+    success: async function (data) {
       locale = data;
-      if (mode == 1) postLangLoad();
-      else reinitContext();
+      if (mode == 1) {
+        await postLangLoad();
+      } else {
+        reinitContext();
+      }
     },
-    error: function () {
+    error: async function () {
       locale = false;
-      if (mode == 1) postLangLoad();
-      else reinitContext();
+      if (mode == 1) {
+        await postLangLoad();
+      } else {
+        reinitContext();
+      }
     },
   });
 }
@@ -2894,7 +3052,7 @@ if (!optionExists('locale')) {
 
 initLang(localStorage['locale'], 1);
 
-function postLangLoad() {
+async function postLangLoad() {
   if (!optionExists('version') || localStorage['version'] != version) {
     // One-time update existing whitelist/blacklist for new regex support introduced in v1.0.7.0
     if (!optionExists('tempregexflag')) {
@@ -2984,4 +3142,6 @@ function postLangLoad() {
     importSyncHandle(0);
   }
   init();
+
+  await updateRules();
 }

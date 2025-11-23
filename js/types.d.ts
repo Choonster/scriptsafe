@@ -463,3 +463,15 @@ declare type LocaleEntry = {
 };
 
 declare type Locale = Record<string, LocaleEntry>;
+
+declare type CallbackFunc0<Result> = (
+  callback: (result: Result) => void,
+) => void;
+
+declare type CallbackFunc1<Param, Result> = (
+  param: Param,
+  callback: (result: Result) => void,
+) => void;
+
+declare type AsyncFunc0<Result> = () => Promise<Result>;
+declare type AsyncFunc1<Param, Result> = (param: Param) => Promise<Result>;

@@ -476,3 +476,16 @@ declare type CallbackFunc1<Param, Result> = (
 
 declare type AsyncFunc0<Result> = () => Promise<Result>;
 declare type AsyncFunc1<Param, Result> = (param: Param) => Promise<Result>;
+
+type KeysMatching<T, V> = {
+  [K in keyof T]-?: T[K] extends V ? K : never;
+}[keyof T];
+
+declare type CallbackResult<T> = Parameters<T>[0];
+
+declare type promisify1Func<
+  Namespace extends object,
+  Key extends KeysMatching<Namespace, CallbackFunc1<unknown, unknown>>,
+  Param extends Parameters<Namespace[Key]>[0],
+  Result extends CallbackResult<Parameters<Namespace[Key]>[1]>,
+> = (namespace: Namespace, key: Key) => AsyncFunc1<Param, Result>;

@@ -1437,17 +1437,17 @@ export function setDefaultOptions(force: 1 | 2 = undefined) {
   )
     sessionStorage['fpBrowserPlugins'] = JSON.stringify([]);
 
-  chrome.browserAction.setBadgeBackgroundColor({ color: [208, 0, 24, 255] });
+  chrome.action.setBadgeBackgroundColor({ color: [208, 0, 24, 255] });
 }
 
 function updateCount(tabId: number) {
   var TAB_ITEMS = ITEMS[tabId] || (ITEMS[tabId] = [0]);
   var TAB_BLOCKED_COUNT = ++TAB_ITEMS[0];
-  chrome.browserAction.setBadgeBackgroundColor({
+  chrome.action.setBadgeBackgroundColor({
     color: [208, 0, 24, 255],
     tabId: tabId,
   });
-  chrome.browserAction.setBadgeText({
+  chrome.action.setBadgeText({
     tabId: tabId,
     text: TAB_BLOCKED_COUNT + '',
   });
@@ -1456,12 +1456,12 @@ function updateCount(tabId: number) {
 function initCount(tabId: number) {
   var TAB_ITEMS = ITEMS[tabId] || (ITEMS[tabId] = [0]);
   var TAB_BLOCKED_COUNT = TAB_ITEMS[0];
-  chrome.browserAction.setBadgeBackgroundColor({
+  chrome.action.setBadgeBackgroundColor({
     color: [208, 0, 24, 255],
     tabId: tabId,
   });
   if (TAB_BLOCKED_COUNT != 0)
-    chrome.browserAction.setBadgeText({
+    chrome.action.setBadgeText({
       tabId: tabId,
       text: TAB_BLOCKED_COUNT + '',
     });
@@ -2167,7 +2167,9 @@ function genContextMenu() {
     title: getLocale('options'),
     parentId: parent,
     onclick: function () {
-      chrome.tabs.create({ url: chrome.extension.getURL('html/options.html') });
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('src/options/options.html'),
+      });
     },
   });
   if (localStorage['enable'] == 'false') {
@@ -2818,7 +2820,7 @@ export function cacheFpLists() {
 }
 
 export async function initLang(lang: string, mode: NumericBool) {
-  var url = chrome.extension.getURL('_locales/' + lang + '/messages.json');
+  var url = chrome.runtime.getURL('_locales/' + lang + '/messages.json');
 
   try {
     locale = await $.ajax({
@@ -2905,7 +2907,7 @@ async function postLangLoad() {
       syncQueue();
     }
     if (localStorage['updatenotify'] == 'true') {
-      chrome.tabs.create({ url: chrome.extension.getURL('html/updated.html') });
+      chrome.tabs.create({ url: chrome.runtime.getURL('html/updated.html') });
     }
     localStorage['version'] = version;
   }

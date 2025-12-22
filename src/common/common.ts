@@ -1,0 +1,261 @@
+// ScriptSafe - Copyright (C) andryou
+// Distributed under the terms of the GNU General Public License
+// The GNU General Public License can be found in the gpl.txt file. Alternatively, see <http://www.gnu.org/licenses/>.
+
+///@ts-check
+
+import { domainCheck } from '../background/scriptsafe';
+import { antisocial1, antisocial2, yoyo1, yoyo2 } from './yoyo';
+
+export function baddies(
+  src: string,
+  amode: AnnoyancesMode,
+  antisocial: StringBool,
+  lookupmode: 1 | 2 = 1,
+): BaddiesResult {
+  var dmn = extractDomainFromURL(src);
+  var topDomain = getDomain(dmn);
+  if (dmn.indexOf('.') == -1 && src.indexOf('.') != -1) dmn = src;
+  if (
+    antisocial == 'true' &&
+    (antisocial2.indexOf(dmn) != -1 ||
+      antisocial1.indexOf(topDomain) != -1 ||
+      src.indexOf('digg.com/tools/diggthis.js') != -1 ||
+      src.indexOf('/googleapis.client__plusone.js') != -1 ||
+      src.indexOf('apis.google.com/js/plusone.js') != -1 ||
+      src.indexOf('.facebook.com/connect') != -1 ||
+      src.indexOf('.facebook.com/plugins') != -1 ||
+      src.indexOf('.facebook.com/widgets') != -1 ||
+      src.indexOf('.fbcdn.net/connect.php/js') != -1 ||
+      src.indexOf('.stumbleupon.com/hostedbadge') != -1 ||
+      src.indexOf('.youtube.com/subscribe_widget') != -1 ||
+      src.indexOf('.ytimg.com/yt/jsbin/www-subscribe-widget') != -1 ||
+      src.indexOf('apis.google.com/js/platform.js') != -1 ||
+      src.indexOf('plus.google.com/js/client:plusone.js') != -1 ||
+      src.indexOf('linkedin.com/countserv/count/share') != -1)
+  )
+    return 2;
+  if (
+    (amode == 'relaxed' && domainCheck(dmn, lookupmode) != 0) ||
+    amode == 'strict'
+  ) {
+    if (binarySearch(yoyo1, topDomain) != -1) return 1;
+    if (binarySearch(yoyo2, dmn) != -1) return 1;
+  }
+  return false;
+}
+
+export function thirdParty(url: string, taburl: string = undefined) {
+  if (url) {
+    var url = extractDomainFromURL(url);
+    var documentHost;
+    if (taburl === undefined) documentHost = window.location.hostname;
+    else documentHost = taburl;
+    url = url.replace(/\.+$/, '');
+    documentHost = documentHost.replace(/\.+$/, '');
+    if (url == documentHost) return false; // if they match exactly (same domain), our job here is done
+    // handle IP addresses (if we're still here, then it means the ip addresses don't match)
+    if (
+      url.match(
+        /^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})$/g,
+      ) ||
+      documentHost.match(
+        /^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})$/g,
+      ) ||
+      url.match(/^(?:\[[A-Fa-f0-9:.]+\])(:[0-9]+)?$/g) ||
+      documentHost.match(/^(?:\[[A-Fa-f0-9:.]+\])(:[0-9]+)?$/g)
+    )
+      return true;
+    // now that IP addresses have been processed, carry on.
+    var elConst = url.split('.').reverse(); // work backwards :)
+    var pageConst = documentHost.split('.').reverse();
+    var max = elConst.length;
+    if (max < pageConst.length) max = pageConst.length;
+    var matchCount = 0;
+    for (var i = 0; i < max; i++) {
+      if (elConst[i] && pageConst[i] && elConst[i] == pageConst[i])
+        matchCount++;
+      else break; // exit loop as soon as something doesn't exist/match
+    }
+    if (matchCount > 2) return false;
+    else if (
+      matchCount == 2 &&
+      (pageConst[1] == 'co' ||
+        pageConst[1] == 'com' ||
+        pageConst[1] == 'net') &&
+      pageConst[0] != 'com'
+    )
+      return true;
+    if (matchCount == 2) return false;
+    return true;
+  }
+  return false; // doesn't have a URL
+}
+
+export function extractDomainFromURL(url: string) {
+  // credit: NotScripts
+  if (!url) return '';
+  if (url.indexOf('://') != -1) url = url.substr(url.indexOf('://') + 3);
+  if (url.indexOf('/') != -1) url = url.substr(0, url.indexOf('/'));
+  if (url.indexOf('@') != -1) url = url.substr(url.indexOf('@') + 1);
+  if (url.match(/^(?:\[[A-Fa-f0-9:.]+\])(:[0-9]+)?$/g)) {
+    if (url.indexOf(']:') != -1) return url.substr(0, url.indexOf(']:') + 1);
+    return url;
+  }
+  if (url.indexOf(':') > 0) url = url.substr(0, url.indexOf(':'));
+  return url;
+}
+
+export function getDomain(
+  url: string,
+  /* TODO: Unused? */ type: undefined = undefined,
+) {
+  if (
+    url &&
+    !url.match(
+      /^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})$/g,
+    ) &&
+    !url.match(/^(?:\[[A-Fa-f0-9:.]+\])(:[0-9]+)?$/g) &&
+    url.indexOf('.') != -1
+  ) {
+    if (url[0] == '*' && url[1] == '*' && url[2] == '.') return url.substr(3);
+
+    const parts = url.split('.').reverse();
+    var domain;
+    var len = parts.length;
+
+    if (len > 1) {
+      if (type === undefined) domain = parts[1] + '.' + parts[0];
+      else domain = parts[1];
+
+      if (
+        (parts[1] == 'co' || parts[1] == 'com' || parts[1] == 'net') &&
+        parts[0] != 'com' &&
+        len > 2
+      ) {
+        if (type === undefined)
+          domain = parts[2] + '.' + parts[1] + '.' + parts[0];
+        else domain = parts[2];
+      }
+    }
+
+    return domain;
+  }
+
+  return url;
+}
+
+export function in_array(needle: string, haystack: string[]) {
+  if (!haystack || !needle) return false;
+  if (needle.indexOf('www.') == 0) needle = needle.substring(4);
+  if (binarySearch(haystack, needle) != -1) return 1;
+  for (var i in haystack) {
+    if (haystack[i].indexOf('*') == -1 && haystack[i].indexOf('?') == -1)
+      continue;
+    if (
+      new RegExp(
+        '^(?:' +
+          haystack[i]
+            .replace(/\./g, '\\.')
+            .replace(/^\[/, '\\[')
+            .replace(/\]$/, '\\]')
+            .replace(/\?/g, '.')
+            .replace(/^\*\*\\./, '(?:.+\\.|^)')
+            .replace(/\*/g, '[^.]+') +
+          ')$',
+      ).test(needle)
+    )
+      return 1;
+  }
+  return false;
+}
+
+/**
+ * https://github.com/Olical/binary-search/blob/master/src/binarySearch.js
+ */
+export function binarySearch(list: string[], item: string) {
+  var min = 0;
+  var max = list.length - 1;
+  var guess;
+  var bitwise = max <= 2147483647 ? true : false;
+  if (bitwise) {
+    while (min <= max) {
+      guess = (min + max) >> 1;
+      if (list[guess] === item) {
+        return guess;
+      } else {
+        if (list[guess] < item) {
+          min = guess + 1;
+        } else {
+          max = guess - 1;
+        }
+      }
+    }
+  } else {
+    while (min <= max) {
+      guess = Math.floor((min + max) / 2);
+      if (list[guess] === item) {
+        return guess;
+      } else {
+        if (list[guess] < item) {
+          min = guess + 1;
+        } else {
+          max = guess - 1;
+        }
+      }
+    }
+  }
+  return -1;
+}
+
+export function parseIntOptional(input: string | number | undefined) {
+  if (typeof input === 'number') {
+    return input;
+  } else if (typeof input !== 'string') {
+    return undefined;
+  }
+
+  const value = parseInt(input);
+
+  return value;
+}
+
+// TODO: Remove promisify functions after updating to Manifest V3.
+
+export function promisify0<Result>(
+  func: CallbackFunc0<Result>,
+): AsyncFunc0<Result> {
+  return () =>
+    new Promise((resolve, reject) => {
+      func((result) => {
+        if (chrome.runtime.lastError) {
+          const error = new Error('WebExtension API call failed', {
+            cause: chrome.runtime.lastError,
+          });
+          reject(error);
+          return;
+        }
+
+        resolve(result);
+      });
+    });
+}
+
+export function promisify1<Param, Result>(
+  func: CallbackFunc1<Param, Result>,
+): AsyncFunc1<Param, Result> {
+  return (param) =>
+    new Promise((resolve, reject) => {
+      func(param, (result) => {
+        if (chrome.runtime.lastError) {
+          const error = new Error('WebExtension API call failed', {
+            cause: chrome.runtime.lastError,
+          });
+          reject(error);
+          return;
+        }
+
+        return resolve(result);
+      });
+    });
+}

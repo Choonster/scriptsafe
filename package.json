@@ -4,8 +4,8 @@
   "description": "A browser extension that gives users control of the web and more secure browsing while emphasizing simplicity and intuitiveness.",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "web-ext run --devtools --pref extensions.dnr.feedback=true --pref termsofuse.bypassNotification=true",
-    "dev": "vite",
+    "start": "web-ext run --source-dir ./dist --devtools --pref extensions.dnr.feedback=true --pref termsofuse.bypassNotification=true",
+    "dev": "vite --mode firefox",
     "build": "tsc && vite build"
   },
   "author": "andryou, Choonster",

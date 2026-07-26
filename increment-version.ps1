@@ -1,6 +1,11 @@
+using namespace System.Text.Json
+using namespace System.Text.Encodings.Web
+
+$ErrorActionPreference = 'Stop'
+
 $manifestPath = Join-Path $PSScriptRoot manifest.json
 
-$manifest = Get-Content  $manifestPath | ConvertFrom-Json
+$manifest = Get-Content  $manifestPath | ConvertFrom-Json -AsHashtable
 
 [string] $currentVersion = $manifest.version
 
@@ -9,7 +14,7 @@ $versionParts = $currentVersion -split '\.'
 $patchIndex = $versionParts.Length - 1
 
 $currentPatch = [int]$versionParts[$patchIndex]
-$newPatch = $currentPatch+ 1
+$newPatch = $currentPatch + 1
 
 $versionParts[$patchIndex] = $newPatch
 
@@ -17,8 +22,15 @@ $newVersion = $versionParts -join '.'
 
 $manifest.version = $newVersion
 
-$manifest | ConvertTo-Json -Depth 25 > $manifestPath
+$options = [JsonSerializerOptions]::new()
+$options.Encoder = [JavaScriptEncoder]::UnsafeRelaxedJsonEscaping
+$options.WriteIndented = $true
+$options.IndentSize = 3
 
-git commit --all --message 'Increment manifest version'
+$manifestJson = [JsonSerializer]::Serialize($manifest, $options)
+
+$manifestJson | Out-File -NoNewline $manifestPath
+
+git commit --message "Increment manifest version to $newVersion" -- $manifestPath
 
 npm version patch

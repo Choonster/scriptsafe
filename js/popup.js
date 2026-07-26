@@ -121,14 +121,14 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function init() {
-  $('#version').html(version);
-  $('#pop_options').html(bkg.getLocale('options'));
-
   if (!bkg) {
     bkg = /** @type {BackgroundWindow} */ (
       chrome.extension.getBackgroundPage()
     );
   }
+
+  $('#version').html(version);
+  $('#pop_options').html(bkg.getLocale('options'));
 
   chrome.tabs.query({ active: true, currentWindow: true }, function (_tab) {
     const tab = _tab[0];

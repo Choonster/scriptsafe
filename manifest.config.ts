@@ -76,5 +76,13 @@ export default function manifest(devPort: number | undefined) {
       extension_pages: contentSecurityPolicy,
       sandbox: contentSecurityPolicy,
     },
+    browser_specific_settings: {
+      gecko: {
+        id: 'script.safe@choonster.com',
+        data_collection_permissions: {
+          required: ['none'],
+        },
+      },
+    },
   });
 }

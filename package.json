@@ -1,6 +1,6 @@
 {
   "name": "scriptsafe",
-  "version": "1.9.4",
+  "version": "1.9.5",
   "description": "A browser extension that gives users control of the web and more secure browsing while emphasizing simplicity and intuitiveness.",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -25,6 +25,7 @@
     "sass": "^1.97.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.0",
-    "vite-plugin-zip-pack": "^1.2.4"
+    "vite-plugin-zip-pack": "^1.2.4",
+    "web-ext": "^10.5.0"
   }
 }

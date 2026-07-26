@@ -1,3 +1,5 @@
 node_modules
 dist
 release
+web-ext-artifacts
+.amo-upload-uuid

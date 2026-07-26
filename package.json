@@ -2,7 +2,9 @@
   "name": "scriptsafe",
   "version": "1.9.7",
   "description": "A browser extension that gives users control of the web and more secure browsing while emphasizing simplicity and intuitiveness.",
-  "scripts": {},
+  "scripts": {
+    "increment-version": "pwsh ./increment-version.ps1"
+  },
   "author": "andryou, Choonster",
   "license": "GPL-3.0",
   "devDependencies": {

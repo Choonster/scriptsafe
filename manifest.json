@@ -68,5 +68,8 @@
       "privacy",
       "contextMenus"
    ],
-   "version": "1.0.9.4"
+   "version": "1.0.9.4",
+   "gecko": {
+      "id": "script.safe@choonster.com"
+   }
 }

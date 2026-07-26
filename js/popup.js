@@ -121,12 +121,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function init() {
-  if (!bkg) {
-    bkg = /** @type {BackgroundWindow} */ (
-      chrome.extension.getBackgroundPage()
-    );
-  }
-
   $('#version').html(version);
   $('#pop_options').html(bkg.getLocale('options'));
 

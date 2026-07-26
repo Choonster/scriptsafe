@@ -69,7 +69,14 @@
       "contextMenus"
    ],
    "version": "1.0.9.4",
-   "gecko": {
-      "id": "script.safe@choonster.com"
+   "browser_specific_settings": {
+      "gecko": {
+         "id": "script.safe@choonster.com",
+         "data_collection_permissions": {
+            "required": [
+               "none"
+            ]
+         }
+      }
    }
 }

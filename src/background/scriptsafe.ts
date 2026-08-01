@@ -2877,7 +2877,7 @@ if (!optionExists('locale')) {
   }
 }
 
-await initLang(localStorage['locale'], 1);
+initLang(localStorage['locale'], 1);
 
 async function postLangLoad() {
   if (!optionExists('version') || localStorage['version'] != version) {

@@ -22,7 +22,7 @@ export default defineConfig(({ command, mode }) => ({
   ],
   server: {
     cors: {
-      origin: [/chrome-extension:\/\//],
+      origin: [/chrome-extension:\/\//, /moz-extension:\/\//],
     },
     port: port,
   },

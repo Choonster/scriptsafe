@@ -10,6 +10,7 @@ export default function manifest(devPort: number | undefined) {
   return defineManifest({
     background: {
       service_worker: 'src/background/scriptsafe.js',
+      type: 'module',
       scripts: ['src/background/scriptsafe.js'],
     },
     action: {
@@ -62,7 +63,7 @@ export default function manifest(devPort: number | undefined) {
       'tabs',
       'unlimitedStorage',
       'webRequest',
-      'webRequestBlocking',
+      // 'webRequestBlocking',
       'storage',
       'notifications',
       'privacy',

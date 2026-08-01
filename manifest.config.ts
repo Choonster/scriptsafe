@@ -4,7 +4,7 @@ import pkg from './package.json';
 export default function manifest(devPort: number | undefined) {
   const contentSecurityPolicy =
     devPort !== undefined
-      ? `script-src 'self' http://localhost:${devPort}`
+      ? `script-src 'self' http://localhost:${devPort}; sandbox allow-scripts`
       : undefined;
 
   return defineManifest({
@@ -59,8 +59,6 @@ export default function manifest(devPort: number | undefined) {
     name: 'ScriptSafe',
     options_page: 'src/options/options.html',
     permissions: [
-      'http://*/*',
-      'https://*/*',
       'tabs',
       'unlimitedStorage',
       'webRequest',

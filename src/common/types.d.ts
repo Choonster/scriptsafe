@@ -105,9 +105,7 @@ declare type AnnoyancesMode = 'strict' | 'relaxed';
 declare type Mode = 'allow' | 'block';
 
 declare type WebRtcMode =
-  | 'off'
-  | 'default_public_interface_only'
-  | 'disable_non_proxied_udp';
+  'off' | 'default_public_interface_only' | 'disable_non_proxied_udp';
 
 declare type LinkTargetMode = 'off' | 'same' | 'new';
 
@@ -452,6 +450,7 @@ declare type ContextMode =
   | 'trust'
   | 'distrust'
   | 'allowtemp'
+  | 'allowtempcustom'
   | 'blocktemp'
   | 'clear'
   | 'toggle';

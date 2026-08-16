@@ -3,3 +3,5 @@ dist
 release
 web-ext-artifacts
 .amo-upload-uuid
+dist
+release

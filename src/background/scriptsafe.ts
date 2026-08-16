@@ -2105,6 +2105,28 @@ function genContextMenu() {
       },
     });
     chrome.contextMenus.create({
+      title: getLocale('allow') + ' (' + getLocale('temp') + ' - Custom)',
+      parentId: parent,
+      onclick: async function () {
+        const tabs = await _tabsQuery({
+          active: true,
+          currentWindow: true,
+        });
+        chrome.scripting.executeScript(
+          {
+            target: { tabId: tabs[0].id },
+            func: () =>
+              prompt(
+                'Enter domain to allow (e.g. example.org or https://example.org/)',
+              ),
+          },
+          async function (result) {
+            await contextHandle('allowtempcustom', result[0].result);
+          },
+        );
+      },
+    });
+    chrome.contextMenus.create({
       title: getLocale('allowallblocked'),
       parentId: parent,
       onclick: tempPage,
@@ -2193,35 +2215,36 @@ function genContextMenu() {
   }
 }
 
-async function contextHandle(mode: ContextMode) {
+async function contextHandle(mode: ContextMode, url: string = undefined) {
   const tabs = await _tabsQuery({
     active: true,
     currentWindow: true,
   });
 
   if (tabs[0].url.indexOf('http') == 0) {
-    var tabdomain = extractDomainFromURL(tabs[0].url);
-    var domainCheckStatus = domainCheck(tabs[0].url);
+    url ??= tabs[0].url;
+    var domain = extractDomainFromURL(url);
+    var domainCheckStatus = domainCheck(url);
     if (mode == 'allow') {
-      await domainHandler(tabdomain, 2, 1);
-      await domainHandler(tabdomain, 0);
+      await domainHandler(domain, 2, 1);
+      await domainHandler(domain, 0);
     } else if (mode == 'block') {
-      await domainHandler(tabdomain, 2, 1);
-      await domainHandler(tabdomain, 1);
+      await domainHandler(domain, 2, 1);
+      await domainHandler(domain, 1);
     } else if (mode == 'allowtemp' && domainCheckStatus == -1)
-      await tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'block' });
+      await tempHandler({ reqtype: 'temp', url: domain, mode: 'block' });
     else if (mode == 'blocktemp' && domainCheckStatus == -1)
-      await tempHandler({ reqtype: 'temp', url: tabdomain, mode: 'allow' });
+      await tempHandler({ reqtype: 'temp', url: domain, mode: 'allow' });
     else if (mode == 'trust') {
-      await topHandler(tabdomain, 0);
+      await topHandler(domain, 0);
     } else if (mode == 'distrust') {
-      await topHandler(tabdomain, 1);
+      await topHandler(domain, 1);
     } else if (mode == 'clear') {
-      if (trustCheck(tabdomain)) {
-        await domainHandler('**.' + getDomain(tabdomain), 2);
+      if (trustCheck(domain)) {
+        await domainHandler('**.' + getDomain(domain), 2);
       } else {
-        await domainHandler(tabdomain, 2, 1);
-        await domainHandler(tabdomain, 2);
+        await domainHandler(domain, 2, 1);
+        await domainHandler(domain, 2);
       }
     } else if (mode == 'toggle') {
       reinitContext();
